@@ -96,13 +96,30 @@ void _3BandEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
     
+    // Set up Process Spec
     juce::dsp::ProcessSpec processSpec;
     processSpec.maximumBlockSize = samplesPerBlock;
     processSpec.numChannels = 1;
     processSpec.sampleRate = sampleRate;
 
+    // Prepare both the left and right chains with our Process Spec
     leftChain.prepare(processSpec);
     rightChain.prepare(processSpec);
+    
+    // Get current parameter settings in chain
+    auto chainSettings = getChainSettings(APVTS);
+    
+    // Update Peak filter coefficients based on current chain settings.
+    // This is a reference-counted wrapper around an array of float values,
+    //    allocated on the heap (which is "bad"? Look into this. Why is heap bad for real-time audio?)
+    auto peakCoefficients = juce::dsp::IIR::Coefficients<float>::makePeakFilter(sampleRate,
+                                                                                chainSettings.peakFreq,
+                                                                                chainSettings.peakQ,
+                                                                                juce::Decibels::decibelsToGain(chainSettings.peakGain_dB));
+    
+    // Because JUCE DSP's IIR Coefficients are reference-counted, we need to dereference here
+    *leftChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients;
+    *rightChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients;
 }
 
 void _3BandEQAudioProcessor::releaseResources()
@@ -152,6 +169,23 @@ void _3BandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
+    // Get current parameter settings in chain
+    auto chainSettings = getChainSettings(APVTS);
+    
+    // Update Peak filter coefficients based on current chain settings.
+    // This is a reference-counted wrapper around an array of float values,
+    //    allocated on the heap (which is "bad"? Look into this. Why is heap bad for real-time audio?)
+    auto peakCoefficients = juce::dsp::IIR::Coefficients<float>::makePeakFilter(getSampleRate(),
+                                                                                chainSettings.peakFreq,
+                                                                                chainSettings.peakQ,
+                                                                                juce::Decibels::decibelsToGain(chainSettings.peakGain_dB));
+    
+    // Because JUCE DSP's IIR Coefficients are reference-counted, we need to dereference here
+    *leftChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients;
+    *rightChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients;
+    
+    //========================================================================
+    
     // create audio block with size of our buffer
     juce::dsp::AudioBlock<float> block(buffer);
     
@@ -194,6 +228,23 @@ void _3BandEQAudioProcessor::setStateInformation (const void* data, int sizeInBy
     // whose contents will have been created by the getStateInformation() call.
 }
 
+// Helper function to return all parameter values from the APVTS as a ChainSettings struct
+ChainSettings getChainSettings(juce::AudioProcessorValueTreeState& APVTS)
+{
+    ChainSettings settings;
+    
+    // Get all current parameter values from APVTS
+    settings.lowCutFreq     = APVTS.getRawParameterValue("LowCut_Freq")->load();
+    settings.lowCutSlope    = APVTS.getRawParameterValue("LowCut_Slope")->load();
+    settings.highCutFreq    = APVTS.getRawParameterValue("HighCut_Freq")->load();
+    settings.highCutSlope   = APVTS.getRawParameterValue("HighCut_Slope")->load();
+    settings.peakFreq       = APVTS.getRawParameterValue("Peak_Freq")->load();
+    settings.peakGain_dB    = APVTS.getRawParameterValue("Peak_Gain")->load();
+    settings.peakQ          = APVTS.getRawParameterValue("Peak_Q")->load();
+    
+    return settings;
+}
+
 juce::AudioProcessorValueTreeState::ParameterLayout _3BandEQAudioProcessor::createParameterLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
@@ -211,7 +262,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout _3BandEQAudioProcessor::crea
     // Low Cut Frequency Parameter
     layout.add(std::make_unique<juce::AudioParameterFloat>("LowCut_Freq",
                                                            "LowCut_Freq",
-                                                           juce::NormalisableRange<float>(20.f, 20000.f, 1.f, 1.f),
+                                                           juce::NormalisableRange<float>(20.f, 20000.f, 1.f, 0.25f),
                                                            20.f));
     
     // Low Cut Slope
@@ -223,7 +274,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout _3BandEQAudioProcessor::crea
     // High Cut Frequency Parameter
     layout.add(std::make_unique<juce::AudioParameterFloat>("HighCut_Freq",
                                                            "HighCut_Freq",
-                                                           juce::NormalisableRange<float>(20.f, 20000.f, 1.f, 1.f),
+                                                           juce::NormalisableRange<float>(20.f, 20000.f, 1.f, 0.25f),
                                                            20000.f));
 
     // High Cut Slope
@@ -235,7 +286,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout _3BandEQAudioProcessor::crea
     // Peak Frequency Parameter
     layout.add(std::make_unique<juce::AudioParameterFloat>("Peak_Freq",
                                                            "Peak_Freq",
-                                                           juce::NormalisableRange<float>(20.f, 20000.f, 1.f, 1.f),
+                                                           juce::NormalisableRange<float>(20.f, 20000.f, 1.f, 0.25f),
                                                            750.f));
     
     // Peak Gain Parameter

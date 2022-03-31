@@ -10,6 +10,17 @@
 
 #include <JuceHeader.h>
 
+// Set up a struct to contain all parameter settings in the chain
+struct ChainSettings
+{
+    float lowCutFreq {0}, highCutFreq {0};
+    int lowCutSlope {0}, highCutSlope {0};
+    float peakFreq {0}, peakGain_dB {0}, peakQ {1.f};
+};
+
+// Helper function to return all parameter values from the APVTS as a ChainSettings struct
+ChainSettings getChainSettings(juce::AudioProcessorValueTreeState& APVTS);
+
 //==============================================================================
 /**
 */
@@ -67,6 +78,13 @@ private:
     using MonoChain = juce::dsp::ProcessorChain<CutFilter, Filter, CutFilter>;
     // Declare two of these mono chains. One for left channel, one for right channel.
     MonoChain leftChain, rightChain;
+    
+    // Define enum to simplify accessing each link in the processing chain
+    enum ChainPositions{
+        LowCut,     //0
+        Peak,       //1
+        HighCut     //2
+    };
     
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (_3BandEQAudioProcessor)
