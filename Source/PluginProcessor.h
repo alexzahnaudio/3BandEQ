@@ -59,6 +59,15 @@ public:
     juce::AudioProcessorValueTreeState APVTS {*this, nullptr, "Parameters", createParameterLayout()};
     
 private:
+    // Shorthand for basic IIR filter. 12dB/oct by default.
+    using Filter = juce::dsp::IIR::Filter<float>;
+    // Sub-processing chain for our Low/High Cut filters, consisting of FOUR 12dB/oct filters.
+    using CutFilter = juce::dsp::ProcessorChain<Filter, Filter, Filter, Filter>;
+    // Our single-channel processing chain: (Low)Cut Filter, Peaking Filter, (High)Cut Filter.
+    using MonoChain = juce::dsp::ProcessorChain<CutFilter, Filter, CutFilter>;
+    // Declare two of these mono chains. One for left channel, one for right channel.
+    MonoChain leftChain, rightChain;
+    
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (_3BandEQAudioProcessor)
 };
