@@ -10,11 +10,20 @@
 
 #include <JuceHeader.h>
 
+// Filter slope enum
+enum Slope
+{
+    SLOPE_12,
+    SLOPE_24,
+    SLOPE_36,
+    SLOPE_48
+};
+
 // Set up a struct to contain all parameter settings in the chain
 struct ChainSettings
 {
     float lowCutFreq {0}, highCutFreq {0};
-    int lowCutSlope {0}, highCutSlope {0};
+    int lowCutSlope {Slope::SLOPE_12}, highCutSlope {Slope::SLOPE_12};
     float peakFreq {0}, peakGain_dB {0}, peakQ {1.f};
 };
 
