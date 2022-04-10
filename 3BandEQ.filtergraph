@@ -65,7 +65,7 @@
           uiLastY_Normal="332" uiopen_Normal="0">
     <PLUGIN name="3BandEQ" format="VST3" category="Fx" manufacturer="yourcompany"
             version="1.0.0" file="/Users/alex/Library/Audio/Plug-Ins/VST3/3BandEQ.vst3"
-            uniqueId="fb96dd2d" isInstrument="0" fileTime="17fddc92273" infoUpdateTime="17fddd128b0"
+            uniqueId="fb96dd2d" isInstrument="0" fileTime="17fddc92273" infoUpdateTime="18007d72b73"
             numInputs="2" numOutputs="2" isShell="0" uid="acf91332"/>
     <STATE>191.VMjLgXK....O+fWarAhckI2bo8la8HRLt.iHfTlai8FYo41Y8HRUTYTK3HxO9.BOVMEUy.Ea0cVZtMEcgQWY9vSRC8Vav8lak4Fc9XCLt3hKt3hKt3hKt3hYRUUSTEETIckVwTjQisVTTgkdEYjKAQjYPQSPWgUdMcjKAQjct3hdA4hKt3hKt3hKtnTUv.UQAslXuk0UXoWUFE0YQcEV77RRC8Vav8lak4Fc9vyKVMEUy.Ea0cVZtMEcgQWY9..</STATE>
     <LAYOUT>
@@ -80,7 +80,7 @@
   <FILTER uid="6" x="0.7" y="0.1038461538461539">
     <PLUGIN name="AUAudioFilePlayer" format="AudioUnit" category="Generator"
             manufacturer="Apple" version="1.6.0" file="AudioUnit:Generators/augn,afpl,appl"
-            uniqueId="6163676e" isInstrument="0" fileTime="0" infoUpdateTime="17fddd128b0"
+            uniqueId="6163676e" isInstrument="0" fileTime="0" infoUpdateTime="18007d72b73"
             numInputs="0" numOutputs="2" isShell="0" uid="6163676e"/>
     <STATE>137.hAGaoMGcv.i0AHv.DTfAGfPBJr.CT4VXsUFWsEla0YVXiQWcxUlbTQVXzEFUzkGbkc0b0IFc4AWYWYWYxMWZu4FVU4FcoQGakQlDgAGbrAjDgU2YtIQXlAGaP..BUnwIrDSNAozSPUkV........AD..........M....................vE</STATE>
     <LAYOUT>

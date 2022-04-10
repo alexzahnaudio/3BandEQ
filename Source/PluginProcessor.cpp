@@ -105,156 +105,40 @@ void _3BandEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     // Prepare both the left and right chains with our Process Spec
     leftChain.prepare(processSpec);
     rightChain.prepare(processSpec);
+
+    //=======================================================================
+    // Update chain settings (get current settings for all parameters)
+    //=======================================================================
     
     // Get current parameter settings in chain
     auto chainSettings = getChainSettings(APVTS);
     
-    // Update Peak filter coefficients based on current chain settings.
-    // This is a reference-counted wrapper around an array of float values,
-    //    allocated on the heap (which is "bad"? Look into this. Why is heap bad for real-time audio?)
-    auto peakCoefficients = juce::dsp::IIR::Coefficients<float>::makePeakFilter(sampleRate,
-                                                                                chainSettings.peakFreq,
-                                                                                chainSettings.peakQ,
-                                                                                juce::Decibels::decibelsToGain(chainSettings.peakGain_dB));
+    //=======================================================================
+    // Update Peak filter
+    //=======================================================================
     
-    // Because JUCE DSP's IIR Coefficients are reference-counted, we need to dereference here
-    *leftChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients;
-    *rightChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients;
+    updatePeakFilter(chainSettings);
+    
+    //========================================================================
+    // Update Low Cut filter
+    //=======================================================================
     
     // Calculate filter order (2, 4, 6, or 8) from filter slope parameters (0, 1, 2, or 3)
     auto lowCutFilterOrder = 2 * (chainSettings.lowCutSlope + 1);
     //auto highCutFilterOrder = 2 * (chainSettings.highCutSlope + 1);
     
     // Calculate low cut filter coefficients
-    auto lowCutCoefficients = juce::dsp::FilterDesign<float>::designIIRHighpassHighOrderButterworthMethod(chainSettings.lowCutFreq,
+    auto lowCutFilterCoefficients = juce::dsp::FilterDesign<float>::designIIRHighpassHighOrderButterworthMethod(chainSettings.lowCutFreq,
                                                                                                           sampleRate,
                                                                                                           lowCutFilterOrder);
-    // Initialize the left chain low cut filter:
+    // Low cut filter:
     //
-    // First, get the left-chain low cut filter
+    // Get the low cut filter (left and right chains)
     auto& leftLowCutFilter = leftChain.get<ChainPositions::LowCut>();
-    
-    // Bypass each 12dB/oct sub-filter in the low cut filter
-    leftLowCutFilter.setBypassed<0>(true);
-    leftLowCutFilter.setBypassed<1>(true);
-    leftLowCutFilter.setBypassed<2>(true);
-    leftLowCutFilter.setBypassed<3>(true);
-    
-    // Re-enable each 12dB/oct sub-filter in the low cut filter as demanded by the current chain settings
-    switch( chainSettings.lowCutSlope )
-    {
-        // If chain settings specify 8th order (48 dB/oct) slope,
-        //   turn on all four 12 dB/oct filters. (indeces 0,1,2,3)
-        // If chain settings specify 6th order (36 dB/oct) slope,
-        //   turn on three of the four 12 dB/oct filters. (indeces 0,1,2)
-        // and so on...
-        case SLOPE_48:
-        {
-            // For each required 12dB/oct filter, update its filter coefficients,
-            //   and STOP bypassing it.
-            *leftLowCutFilter.get<3>().coefficients = *lowCutCoefficients[3];
-            leftLowCutFilter.setBypassed<3>(false);
-            *leftLowCutFilter.get<2>().coefficients = *lowCutCoefficients[2];
-            leftLowCutFilter.setBypassed<2>(false);
-            *leftLowCutFilter.get<1>().coefficients = *lowCutCoefficients[1];
-            leftLowCutFilter.setBypassed<1>(false);
-            *leftLowCutFilter.get<0>().coefficients = *lowCutCoefficients[0];
-            leftLowCutFilter.setBypassed<0>(false);
-            
-            break;
-        }
-        case SLOPE_36:
-        {
-            *leftLowCutFilter.get<2>().coefficients = *lowCutCoefficients[2];
-            leftLowCutFilter.setBypassed<2>(false);
-            *leftLowCutFilter.get<1>().coefficients = *lowCutCoefficients[1];
-            leftLowCutFilter.setBypassed<1>(false);
-            *leftLowCutFilter.get<0>().coefficients = *lowCutCoefficients[0];
-            leftLowCutFilter.setBypassed<0>(false);
-            
-            break;
-        }
-        case SLOPE_24:
-        {
-            *leftLowCutFilter.get<1>().coefficients = *lowCutCoefficients[1];
-            leftLowCutFilter.setBypassed<1>(false);
-            *leftLowCutFilter.get<0>().coefficients = *lowCutCoefficients[0];
-            leftLowCutFilter.setBypassed<0>(false);
-            
-            break;
-        }
-        case SLOPE_12:
-        {
-            *leftLowCutFilter.get<0>().coefficients = *lowCutCoefficients[0];
-            leftLowCutFilter.setBypassed<0>(false);
-            
-            break;
-        }
-    }
-    
-    // Now do the same for the right chain:
-    //
-    // First, get the right-chain low cut filter
     auto& rightLowCutFilter = rightChain.get<ChainPositions::LowCut>();
-    
-    // Bypass each 12dB/oct sub-filter in the low cut filter
-    rightLowCutFilter.setBypassed<0>(true);
-    rightLowCutFilter.setBypassed<1>(true);
-    rightLowCutFilter.setBypassed<2>(true);
-    rightLowCutFilter.setBypassed<3>(true);
-    
-    // Re-enable each 12dB/oct sub-filter in the low cut filter as demanded by the current chain settings
-    switch( chainSettings.lowCutSlope )
-    {
-        // If chain settings specify 8th order (48 dB/oct) slope,
-        //   turn on all four 12 dB/oct filters. (indeces 0,1,2,3)
-        // If chain settings specify 6th order (36 dB/oct) slope,
-        //   turn on three of the four 12 dB/oct filters. (indeces 0,1,2)
-        // and so on...
-        case SLOPE_48:
-        {
-            // For each required 12dB/oct filter, update its filter coefficients,
-            //   and STOP bypassing it.
-            *rightLowCutFilter.get<3>().coefficients = *lowCutCoefficients[3];
-            rightLowCutFilter.setBypassed<3>(false);
-            *rightLowCutFilter.get<2>().coefficients = *lowCutCoefficients[2];
-            rightLowCutFilter.setBypassed<2>(false);
-            *rightLowCutFilter.get<1>().coefficients = *lowCutCoefficients[1];
-            rightLowCutFilter.setBypassed<1>(false);
-            *rightLowCutFilter.get<0>().coefficients = *lowCutCoefficients[0];
-            rightLowCutFilter.setBypassed<0>(false);
-            
-            break;
-        }
-        case SLOPE_36:
-        {
-            *rightLowCutFilter.get<2>().coefficients = *lowCutCoefficients[2];
-            rightLowCutFilter.setBypassed<2>(false);
-            *rightLowCutFilter.get<1>().coefficients = *lowCutCoefficients[1];
-            rightLowCutFilter.setBypassed<1>(false);
-            *rightLowCutFilter.get<0>().coefficients = *lowCutCoefficients[0];
-            rightLowCutFilter.setBypassed<0>(false);
-            
-            break;
-        }
-        case SLOPE_24:
-        {
-            *rightLowCutFilter.get<1>().coefficients = *lowCutCoefficients[1];
-            rightLowCutFilter.setBypassed<1>(false);
-            *rightLowCutFilter.get<0>().coefficients = *lowCutCoefficients[0];
-            rightLowCutFilter.setBypassed<0>(false);
-            
-            break;
-        }
-        case SLOPE_12:
-        {
-            *rightLowCutFilter.get<0>().coefficients = *lowCutCoefficients[0];
-            rightLowCutFilter.setBypassed<0>(false);
-            
-            break;
-        }
-    }
-
+    // Use chain settings to calculate new filter coefficients and apply them to the filter (L and R chains)
+    updateCutFilter(leftLowCutFilter, lowCutFilterCoefficients, chainSettings.lowCutSlope);
+    updateCutFilter(rightLowCutFilter, lowCutFilterCoefficients, chainSettings.lowCutSlope);
 }
 
 void _3BandEQAudioProcessor::releaseResources()
@@ -305,30 +189,20 @@ void _3BandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         buffer.clear (i, 0, buffer.getNumSamples());
 
     //=======================================================================
-    // Update chain parameter settings
+    // Update chain settings (get current settings for all parameters)
     //=======================================================================
     
     // Get current parameter settings in chain
     auto chainSettings = getChainSettings(APVTS);
     
     //=======================================================================
-    // Update Peak filter coefficients
+    // Update Peak filter
     //=======================================================================
     
-    // Update Peak filter coefficients based on current chain settings.
-    // This is a reference-counted wrapper around an array of float values,
-    //    allocated on the heap (which is "bad"? Look into this. Why is heap bad for real-time audio?)
-    auto peakCoefficients = juce::dsp::IIR::Coefficients<float>::makePeakFilter(getSampleRate(),
-                                                                                chainSettings.peakFreq,
-                                                                                chainSettings.peakQ,
-                                                                                juce::Decibels::decibelsToGain(chainSettings.peakGain_dB));
-    
-    // Because JUCE DSP's IIR Coefficients are reference-counted, we need to dereference here
-    *leftChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients;
-    *rightChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients;
+    updatePeakFilter(chainSettings);
     
     //========================================================================
-    // Update Low Cut filter coefficients
+    // Update Low Cut filter
     //=======================================================================
     
     // Calculate filter order (2, 4, 6, or 8) from filter slope parameters (0, 1, 2, or 3)
@@ -336,137 +210,21 @@ void _3BandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     //auto highCutFilterOrder = 2 * (chainSettings.highCutSlope + 1);
     
     // Calculate low cut filter coefficients
-    auto lowCutCoefficients = juce::dsp::FilterDesign<float>::designIIRHighpassHighOrderButterworthMethod(chainSettings.lowCutFreq,
+    auto lowCutFilterCoefficients = juce::dsp::FilterDesign<float>::designIIRHighpassHighOrderButterworthMethod(chainSettings.lowCutFreq,
                                                                                                           getSampleRate(),
                                                                                                           lowCutFilterOrder);
-    // Initialize the left chain low cut filter:
+    // Low cut filter:
     //
-    // First, get the left-chain low cut filter
+    // Get the low cut filter (left and right chains)
     auto& leftLowCutFilter = leftChain.get<ChainPositions::LowCut>();
-    
-    // Bypass each 12dB/oct sub-filter in the low cut filter
-    leftLowCutFilter.setBypassed<0>(true);
-    leftLowCutFilter.setBypassed<1>(true);
-    leftLowCutFilter.setBypassed<2>(true);
-    leftLowCutFilter.setBypassed<3>(true);
-    
-    // Re-enable each 12dB/oct sub-filter in the low cut filter as demanded by the current chain settings
-    switch( chainSettings.lowCutSlope )
-    {
-        // If chain settings specify 8th order (48 dB/oct) slope,
-        //   turn on all four 12 dB/oct filters. (indeces 0,1,2,3)
-        // If chain settings specify 6th order (36 dB/oct) slope,
-        //   turn on three of the four 12 dB/oct filters. (indeces 0,1,2)
-        // and so on...
-        case SLOPE_48:
-        {
-            // For each required 12dB/oct filter, update its filter coefficients,
-            //   and STOP bypassing it.
-            *leftLowCutFilter.get<3>().coefficients = *lowCutCoefficients[3];
-            leftLowCutFilter.setBypassed<3>(false);
-            *leftLowCutFilter.get<2>().coefficients = *lowCutCoefficients[2];
-            leftLowCutFilter.setBypassed<2>(false);
-            *leftLowCutFilter.get<1>().coefficients = *lowCutCoefficients[1];
-            leftLowCutFilter.setBypassed<1>(false);
-            *leftLowCutFilter.get<0>().coefficients = *lowCutCoefficients[0];
-            leftLowCutFilter.setBypassed<0>(false);
-            
-            break;
-        }
-        case SLOPE_36:
-        {
-            *leftLowCutFilter.get<2>().coefficients = *lowCutCoefficients[2];
-            leftLowCutFilter.setBypassed<2>(false);
-            *leftLowCutFilter.get<1>().coefficients = *lowCutCoefficients[1];
-            leftLowCutFilter.setBypassed<1>(false);
-            *leftLowCutFilter.get<0>().coefficients = *lowCutCoefficients[0];
-            leftLowCutFilter.setBypassed<0>(false);
-            
-            break;
-        }
-        case SLOPE_24:
-        {
-            *leftLowCutFilter.get<1>().coefficients = *lowCutCoefficients[1];
-            leftLowCutFilter.setBypassed<1>(false);
-            *leftLowCutFilter.get<0>().coefficients = *lowCutCoefficients[0];
-            leftLowCutFilter.setBypassed<0>(false);
-            
-            break;
-        }
-        case SLOPE_12:
-        {
-            *leftLowCutFilter.get<0>().coefficients = *lowCutCoefficients[0];
-            leftLowCutFilter.setBypassed<0>(false);
-            
-            break;
-        }
-    }
-    
-    // Now do the same for the right chain:
-    //
-    // First, get the right-chain low cut filter
     auto& rightLowCutFilter = rightChain.get<ChainPositions::LowCut>();
-    
-    // Bypass each 12dB/oct sub-filter in the low cut filter
-    rightLowCutFilter.setBypassed<0>(true);
-    rightLowCutFilter.setBypassed<1>(true);
-    rightLowCutFilter.setBypassed<2>(true);
-    rightLowCutFilter.setBypassed<3>(true);
-    
-    // Re-enable each 12dB/oct sub-filter in the low cut filter as demanded by the current chain settings
-    switch( chainSettings.lowCutSlope )
-    {
-        // If chain settings specify 8th order (48 dB/oct) slope,
-        //   turn on all four 12 dB/oct filters. (indeces 0,1,2,3)
-        // If chain settings specify 6th order (36 dB/oct) slope,
-        //   turn on three of the four 12 dB/oct filters. (indeces 0,1,2)
-        // and so on...
-        case SLOPE_48:
-        {
-            // For each required 12dB/oct filter, update its filter coefficients,
-            //   and STOP bypassing it.
-            *rightLowCutFilter.get<3>().coefficients = *lowCutCoefficients[3];
-            rightLowCutFilter.setBypassed<3>(false);
-            *rightLowCutFilter.get<2>().coefficients = *lowCutCoefficients[2];
-            rightLowCutFilter.setBypassed<2>(false);
-            *rightLowCutFilter.get<1>().coefficients = *lowCutCoefficients[1];
-            rightLowCutFilter.setBypassed<1>(false);
-            *rightLowCutFilter.get<0>().coefficients = *lowCutCoefficients[0];
-            rightLowCutFilter.setBypassed<0>(false);
-            
-            break;
-        }
-        case SLOPE_36:
-        {
-            *rightLowCutFilter.get<2>().coefficients = *lowCutCoefficients[2];
-            rightLowCutFilter.setBypassed<2>(false);
-            *rightLowCutFilter.get<1>().coefficients = *lowCutCoefficients[1];
-            rightLowCutFilter.setBypassed<1>(false);
-            *rightLowCutFilter.get<0>().coefficients = *lowCutCoefficients[0];
-            rightLowCutFilter.setBypassed<0>(false);
-            
-            break;
-        }
-        case SLOPE_24:
-        {
-            *rightLowCutFilter.get<1>().coefficients = *lowCutCoefficients[1];
-            rightLowCutFilter.setBypassed<1>(false);
-            *rightLowCutFilter.get<0>().coefficients = *lowCutCoefficients[0];
-            rightLowCutFilter.setBypassed<0>(false);
-            
-            break;
-        }
-        case SLOPE_12:
-        {
-            *rightLowCutFilter.get<0>().coefficients = *lowCutCoefficients[0];
-            rightLowCutFilter.setBypassed<0>(false);
-            
-            break;
-        }
-    }
+    // Use chain settings to calculate new filter coefficients and apply them to the filter (L and R chains)
+    updateCutFilter(leftLowCutFilter, lowCutFilterCoefficients, chainSettings.lowCutSlope);
+    updateCutFilter(rightLowCutFilter, lowCutFilterCoefficients, chainSettings.lowCutSlope);
 
     
     //========================================================================
+    
     
     // create audio block with size of our buffer
     juce::dsp::AudioBlock<float> block(buffer);
@@ -527,6 +285,28 @@ ChainSettings getChainSettings(juce::AudioProcessorValueTreeState& APVTS)
     return settings;
 }
 
+// Helper function to update the peak filter
+void _3BandEQAudioProcessor::updatePeakFilter(const ChainSettings &chainSettings)
+{
+    // Calculate Peak filter coefficients based on current chain settings.
+    // This is a reference-counted wrapper around an array of float values,
+    //    allocated on the heap (which is "bad"? Look into this. Why is heap bad for real-time audio?)
+    auto updatedPeakCoefficients = juce::dsp::IIR::Coefficients<float>::makePeakFilter(getSampleRate(),
+                                                                                chainSettings.peakFreq,
+                                                                                chainSettings.peakQ,
+                                                                                juce::Decibels::decibelsToGain(chainSettings.peakGain_dB));
+    // Apply those coefficients to the peak filter (left chain and right chain)
+    updateCoefficients(leftChain.get<ChainPositions::Peak>().coefficients, updatedPeakCoefficients);
+    updateCoefficients(rightChain.get<ChainPositions::Peak>().coefficients, updatedPeakCoefficients);
+}
+
+// Helper function to update filter coefficients
+void _3BandEQAudioProcessor::updateCoefficients(Coefficients &old, const Coefficients &replacement)
+{
+    // Because JUCE DSP's IIR Coefficients are reference-counted on the heap, we need to dereference here
+    *old = *replacement;
+}
+
 juce::AudioProcessorValueTreeState::ParameterLayout _3BandEQAudioProcessor::createParameterLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
@@ -581,11 +361,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout _3BandEQAudioProcessor::crea
                                                            "Peak_Q",
                                                            juce::NormalisableRange<float>(0.1f, 10.f, 0.05f, 1.f),
                                                            1.f));
-    
-
-
-
-    
+        
     return layout;
 }
 

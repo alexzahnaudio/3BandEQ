@@ -23,7 +23,7 @@ enum Slope
 struct ChainSettings
 {
     float lowCutFreq {0}, highCutFreq {0};
-    int lowCutSlope {Slope::SLOPE_12}, highCutSlope {Slope::SLOPE_12};
+    Slope lowCutSlope {Slope::SLOPE_12}, highCutSlope {Slope::SLOPE_12};
     float peakFreq {0}, peakGain_dB {0}, peakQ {1.f};
 };
 
@@ -83,6 +83,8 @@ private:
     using Filter = juce::dsp::IIR::Filter<float>;
     // Sub-processing chain for our Low/High Cut filters, consisting of FOUR 12dB/oct filters.
     using CutFilter = juce::dsp::ProcessorChain<Filter, Filter, Filter, Filter>;
+    // Filter coefficients
+    using Coefficients = Filter::CoefficientsPtr;
     // Our single-channel processing chain: (Low)Cut Filter, Peaking Filter, (High)Cut Filter.
     using MonoChain = juce::dsp::ProcessorChain<CutFilter, Filter, CutFilter>;
     // Declare two of these mono chains. One for left channel, one for right channel.
@@ -94,6 +96,74 @@ private:
         Peak,       //1
         HighCut     //2
     };
+    
+    void updatePeakFilter(const ChainSettings& ChainSettings);
+    
+    static void updateCoefficients(Coefficients& old, const Coefficients& replacement);
+    
+    template<typename ChainType, typename CoefficientType>
+    void updateCutFilter(ChainType& lowCutFilter,
+                         const CoefficientType& lowCutFilterCoefficients,
+                         const Slope& lowCutFilterSlope)
+    {
+        // Bypass each 12dB/oct sub-filter in the low cut filter
+        lowCutFilter.template setBypassed<0>(true);
+        lowCutFilter.template setBypassed<1>(true);
+        lowCutFilter.template setBypassed<2>(true);
+        lowCutFilter.template setBypassed<3>(true);
+
+        // Re-enable each 12dB/oct sub-filter in the low cut filter as demanded by the current chain settings
+        switch( lowCutFilterSlope )
+        {
+            // If chain settings specify 8th order (48 dB/oct) slope,
+            //   turn on all four 12 dB/oct filters. (indeces 0,1,2,3)
+            // If chain settings specify 6th order (36 dB/oct) slope,
+            //   turn on three of the four 12 dB/oct filters. (indeces 0,1,2)
+            // and so on...
+            case SLOPE_48:
+            {
+                // For each required 12dB/oct filter, update its filter coefficients,
+                //   and STOP bypassing it.
+                *lowCutFilter.template get<3>().coefficients = *lowCutFilterCoefficients[3];
+                lowCutFilter.template setBypassed<3>(false);
+                *lowCutFilter.template get<2>().coefficients = *lowCutFilterCoefficients[2];
+                lowCutFilter.template setBypassed<2>(false);
+                *lowCutFilter.template get<1>().coefficients = *lowCutFilterCoefficients[1];
+                lowCutFilter.template setBypassed<1>(false);
+                *lowCutFilter.template get<0>().coefficients = *lowCutFilterCoefficients[0];
+                lowCutFilter.template setBypassed<0>(false);
+                
+                break;
+            }
+            case SLOPE_36:
+            {
+                *lowCutFilter.template get<2>().coefficients = *lowCutFilterCoefficients[2];
+                lowCutFilter.template setBypassed<2>(false);
+                *lowCutFilter.template get<1>().coefficients = *lowCutFilterCoefficients[1];
+                lowCutFilter.template setBypassed<1>(false);
+                *lowCutFilter.template get<0>().coefficients = *lowCutFilterCoefficients[0];
+                lowCutFilter.template setBypassed<0>(false);
+                
+                break;
+            }
+            case SLOPE_24:
+            {
+                *lowCutFilter.template get<1>().coefficients = *lowCutFilterCoefficients[1];
+                lowCutFilter.template setBypassed<1>(false);
+                *lowCutFilter.template get<0>().coefficients = *lowCutFilterCoefficients[0];
+                lowCutFilter.template setBypassed<0>(false);
+                
+                break;
+            }
+            case SLOPE_12:
+            {
+                *lowCutFilter.template get<0>().coefficients = *lowCutFilterCoefficients[0];
+                lowCutFilter.template setBypassed<0>(false);
+                
+                break;
+            }
+        }
+    }
     
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (_3BandEQAudioProcessor)
