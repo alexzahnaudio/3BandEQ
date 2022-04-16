@@ -101,18 +101,31 @@ private:
     
     static void updateCoefficients(Coefficients& old, const Coefficients& replacement);
     
+    // Helper function to update a filter component (one of the four 12dB/oct "sub"-filters that...
+    // ...make up the low- and high-cut filters in our chain).
+    template<int FilterComponentIndex, typename ChainType, typename CoefficientType>
+    void updateFilterComponent(ChainType& chain, CoefficientType& lowCutFilterCoefficients)
+    {
+        // Pass the current filter-chain parameter settings to the filters as coefficients
+        updateCoefficients( chain.template get<FilterComponentIndex>().coefficients,
+                            lowCutFilterCoefficients[FilterComponentIndex] );
+        // Stop bypassing filter components as required
+        chain.template setBypassed<FilterComponentIndex>(false);
+    }
+    
+    // Helper function to update a cut filter
     template<typename ChainType, typename CoefficientType>
     void updateCutFilter(ChainType& lowCutFilter,
                          const CoefficientType& lowCutFilterCoefficients,
                          const Slope& lowCutFilterSlope)
     {
-        // Bypass each 12dB/oct sub-filter in the low cut filter
+        // Bypass each 12dB/oct filter component in the low cut filter...
         lowCutFilter.template setBypassed<0>(true);
         lowCutFilter.template setBypassed<1>(true);
         lowCutFilter.template setBypassed<2>(true);
         lowCutFilter.template setBypassed<3>(true);
 
-        // Re-enable each 12dB/oct sub-filter in the low cut filter as demanded by the current chain settings
+        // ...Then update/re-enable them as demanded by the current chain settings
         switch( lowCutFilterSlope )
         {
             // If chain settings specify 8th order (48 dB/oct) slope,
@@ -122,48 +135,30 @@ private:
             // and so on...
             case SLOPE_48:
             {
-                // For each required 12dB/oct filter, update its filter coefficients,
-                //   and STOP bypassing it.
-                *lowCutFilter.template get<3>().coefficients = *lowCutFilterCoefficients[3];
-                lowCutFilter.template setBypassed<3>(false);
-                *lowCutFilter.template get<2>().coefficients = *lowCutFilterCoefficients[2];
-                lowCutFilter.template setBypassed<2>(false);
-                *lowCutFilter.template get<1>().coefficients = *lowCutFilterCoefficients[1];
-                lowCutFilter.template setBypassed<1>(false);
-                *lowCutFilter.template get<0>().coefficients = *lowCutFilterCoefficients[0];
-                lowCutFilter.template setBypassed<0>(false);
-                
-                break;
+                updateFilterComponent<3>(lowCutFilter, lowCutFilterCoefficients);
             }
             case SLOPE_36:
             {
-                *lowCutFilter.template get<2>().coefficients = *lowCutFilterCoefficients[2];
-                lowCutFilter.template setBypassed<2>(false);
-                *lowCutFilter.template get<1>().coefficients = *lowCutFilterCoefficients[1];
-                lowCutFilter.template setBypassed<1>(false);
-                *lowCutFilter.template get<0>().coefficients = *lowCutFilterCoefficients[0];
-                lowCutFilter.template setBypassed<0>(false);
-                
-                break;
+                updateFilterComponent<2>(lowCutFilter, lowCutFilterCoefficients);
             }
             case SLOPE_24:
             {
-                *lowCutFilter.template get<1>().coefficients = *lowCutFilterCoefficients[1];
-                lowCutFilter.template setBypassed<1>(false);
-                *lowCutFilter.template get<0>().coefficients = *lowCutFilterCoefficients[0];
-                lowCutFilter.template setBypassed<0>(false);
-                
-                break;
+                updateFilterComponent<1>(lowCutFilter, lowCutFilterCoefficients);
             }
             case SLOPE_12:
             {
-                *lowCutFilter.template get<0>().coefficients = *lowCutFilterCoefficients[0];
-                lowCutFilter.template setBypassed<0>(false);
-                
-                break;
+                updateFilterComponent<0>(lowCutFilter, lowCutFilterCoefficients);
             }
         }
     }
+    
+    // Helper functions to update low- and high- cut filters
+    void updateLowCutFilter(const ChainSettings& chainSettings);
+    void updateHighCutFilter(const ChainSettings& chainSettings);
+    
+    
+    // Helper function to update all filters in the chain
+    void updateFilters();
     
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (_3BandEQAudioProcessor)
