@@ -196,15 +196,29 @@ juce::AudioProcessorEditor* _3BandEQAudioProcessor::createEditor()
 //==============================================================================
 void _3BandEQAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
+    // Use JUCE ValueTree type as an intermediary to save parameter state to memory
+    
+    // Create a memory output stream
+    // 'true' here means "append to existing data"
+    juce::MemoryOutputStream MOS(destData, true);
+    // Write our APVTS current state to the memory output stream
+    APVTS.state.writeToStream(MOS);
 }
 
 void _3BandEQAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
+    // Restore parameter state from memory, using JUCE ValueTree type as intermediary
+    
+    // Grab the stored parameter values
+    auto valueTree = juce::ValueTree::readFromData(data, sizeInBytes);
+    // Make sure the values are valid
+    if( valueTree.isValid() )
+    {
+        // Feed the values to our APVTS
+        APVTS.replaceState(valueTree);
+        // Update filter values to reflect the new state
+        updateFilters();
+    }
 }
 
 // Helper function to return all parameter values from the APVTS as a ChainSettings struct
