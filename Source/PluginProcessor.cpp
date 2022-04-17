@@ -156,27 +156,19 @@ void _3BandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     // this code if your algorithm always overwrites all the output channels.
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
-
-    //=======================================================================
-    // Get the current parameter values and update all filters in the chain
-    //=======================================================================
     
+    // Get the current parameter values and update all filters in the chain
     updateFilters();
-        
-    //========================================================================
     
     // create audio block with size of our buffer
     juce::dsp::AudioBlock<float> block(buffer);
-    
     // extract left and right channels separately from audio block
     auto leftBlock = block.getSingleChannelBlock(0);
     auto rightBlock = block.getSingleChannelBlock(1);
-    
     // create processing context for left and right channels
     juce::dsp::ProcessContextReplacing<float> leftContext(leftBlock);
     juce::dsp::ProcessContextReplacing<float> rightContext(rightBlock);
-    
-    // tell the left and right mono processing chains to use respective processing contexts
+    // tell the left and right mono processing chains to use these processing contexts
     leftChain.process(leftContext);
     rightChain.process(rightContext);
 }
@@ -189,8 +181,8 @@ bool _3BandEQAudioProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* _3BandEQAudioProcessor::createEditor()
 {
-    //return new _3BandEQAudioProcessorEditor (*this);
-    return new juce::GenericAudioProcessorEditor(*this);
+    return new _3BandEQAudioProcessorEditor (*this);
+//    return new juce::GenericAudioProcessorEditor(*this);
 }
 
 //==============================================================================
