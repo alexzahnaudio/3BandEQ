@@ -168,15 +168,22 @@ void _3BandEQAudioProcessorEditor::parameterValueChanged(int parameterIndex, flo
 
 void _3BandEQAudioProcessorEditor::timerCallback()
 {
-    // if parameters have been changed, lower the flag and enter this block
+    // if parameters have been changed since the last timer tick...
+    // ...lower the flag and update the Editor mono chain
     if (parametersChanged.compareAndSetBool(false, true))
     {
-        // update the mono chain
         auto chainSettings = getChainSettings(audioProcessor.APVTS);
+        // update peak filter
         auto peakCoefficients = makePeakFilter(chainSettings, audioProcessor.getSampleRate());
         updateCoefficients(monoChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
+        // update low cut filter
+        auto lowCutCoefficients = makeLowCutFilter(chainSettings, audioProcessor.getSampleRate());
+        updateCutFilter(monoChain.get<ChainPositions::LowCut>(), lowCutCoefficients, chainSettings.lowCutSlope);
+        // update high cut filter
+        auto highCutCoefficients = makeHighCutFilter(chainSettings, audioProcessor.getSampleRate());
+        updateCutFilter(monoChain.get<ChainPositions::HighCut>(), highCutCoefficients, chainSettings.highCutSlope);
         
-        // signal a repaint
+        // repaint GUI
         repaint();
     }
 }
