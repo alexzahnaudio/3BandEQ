@@ -12,26 +12,43 @@
 //==============================================================================
 _3BandEQAudioProcessorEditor::_3BandEQAudioProcessorEditor (_3BandEQAudioProcessor& p)
     : AudioProcessorEditor (&p),
-      audioProcessor (p),
-      peakFreqSliderAttachment(audioProcessor.APVTS, "Peak_Freq", peakFreqSlider),
-      peakGainSliderAttachment(audioProcessor.APVTS, "Peak_Gain", peakGainSlider),
-      peakQSliderAttachment(audioProcessor.APVTS, "Peak_Q", peakQSlider),
-      lowCutFreqSliderAttachment(audioProcessor.APVTS, "LowCut_Freq", lowCutFreqSlider),
-      lowCutSlopeSliderAttachment(audioProcessor.APVTS, "LowCut_Slope", lowCutSlopeSlider),
-      highCutFreqSliderAttachment(audioProcessor.APVTS, "HighCut_Freq", highCutFreqSlider),
-      highCutSlopeSliderAttachment(audioProcessor.APVTS, "HighCut_Slope", highCutSlopeSlider)
+audioProcessor (p),
+peakFreqSliderAttachment(audioProcessor.APVTS, "Peak_Freq", peakFreqSlider),
+peakGainSliderAttachment(audioProcessor.APVTS, "Peak_Gain", peakGainSlider),
+peakQSliderAttachment(audioProcessor.APVTS, "Peak_Q", peakQSlider),
+lowCutFreqSliderAttachment(audioProcessor.APVTS, "LowCut_Freq", lowCutFreqSlider),
+lowCutSlopeSliderAttachment(audioProcessor.APVTS, "LowCut_Slope", lowCutSlopeSlider),
+highCutFreqSliderAttachment(audioProcessor.APVTS, "HighCut_Freq", highCutFreqSlider),
+highCutSlopeSliderAttachment(audioProcessor.APVTS, "HighCut_Slope", highCutSlopeSlider)
 {
+    // Tell our Listener to listen to the main audio processor chain parameters
+    const auto& parameters = audioProcessor.getParameters();
+    for (auto parameter : parameters)
+    {
+        parameter->addListener(this);
+    }
+    
+    // Start the timer, update GUI at 60Hz refresh rate
+    startTimerHz(60);
+    
     // Add our GUI components
     for (auto* component : getComponents())
     {
         addAndMakeVisible(component);
     }
+    
     // Set the plugin window size
     setSize (600, 400);
 }
 
 _3BandEQAudioProcessorEditor::~_3BandEQAudioProcessorEditor()
 {
+    // Tell our Listener to stop listening to the main audio processor chain parameters
+    const auto& parameters = audioProcessor.getParameters();
+    for (auto parameter : parameters)
+    {
+        parameter->removeListener(this);
+    }
 }
 
 //==============================================================================
@@ -155,8 +172,12 @@ void _3BandEQAudioProcessorEditor::timerCallback()
     if (parametersChanged.compareAndSetBool(false, true))
     {
         // update the mono chain
+        auto chainSettings = getChainSettings(audioProcessor.APVTS);
+        auto peakCoefficients = makePeakFilter(chainSettings, audioProcessor.getSampleRate());
+        updateCoefficients(monoChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
         
         // signal a repaint
+        repaint();
     }
 }
 
