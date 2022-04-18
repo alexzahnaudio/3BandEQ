@@ -30,6 +30,22 @@ struct ChainSettings
 // Helper function to return all parameter values from the APVTS as a ChainSettings struct
 ChainSettings getChainSettings(juce::AudioProcessorValueTreeState& APVTS);
 
+// Shorthand for basic IIR filter. 12dB/oct by default.
+using Filter = juce::dsp::IIR::Filter<float>;
+// Sub-processing chain for our Low/High Cut filters, consisting of FOUR 12dB/oct filters.
+using CutFilter = juce::dsp::ProcessorChain<Filter, Filter, Filter, Filter>;
+// Filter coefficients
+using Coefficients = Filter::CoefficientsPtr;
+// Our single-channel processing chain: (Low)Cut Filter, Peaking Filter, (High)Cut Filter.
+using MonoChain = juce::dsp::ProcessorChain<CutFilter, Filter, CutFilter>;
+
+// Define enum to simplify accessing each link in the processing chain
+enum ChainPositions{
+    LowCut,     //0
+    Peak,       //1
+    HighCut     //2
+};
+
 //==============================================================================
 /**
 */
@@ -79,23 +95,8 @@ public:
     juce::AudioProcessorValueTreeState APVTS {*this, nullptr, "Parameters", createParameterLayout()};
     
 private:
-    // Shorthand for basic IIR filter. 12dB/oct by default.
-    using Filter = juce::dsp::IIR::Filter<float>;
-    // Sub-processing chain for our Low/High Cut filters, consisting of FOUR 12dB/oct filters.
-    using CutFilter = juce::dsp::ProcessorChain<Filter, Filter, Filter, Filter>;
-    // Filter coefficients
-    using Coefficients = Filter::CoefficientsPtr;
-    // Our single-channel processing chain: (Low)Cut Filter, Peaking Filter, (High)Cut Filter.
-    using MonoChain = juce::dsp::ProcessorChain<CutFilter, Filter, CutFilter>;
     // Declare two of these mono chains. One for left channel, one for right channel.
     MonoChain leftChain, rightChain;
-    
-    // Define enum to simplify accessing each link in the processing chain
-    enum ChainPositions{
-        LowCut,     //0
-        Peak,       //1
-        HighCut     //2
-    };
     
     void updatePeakFilter(const ChainSettings& ChainSettings);
     

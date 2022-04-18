@@ -61,6 +61,8 @@ private:
     
     // Declare a function to return all our rotary sliders as a vector
     std::vector<juce::Component*> getComponents();
+    
+    MonoChain monoChain;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (_3BandEQAudioProcessorEditor)
 };
