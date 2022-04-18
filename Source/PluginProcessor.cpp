@@ -266,14 +266,8 @@ void updateCoefficients(Coefficients &old, const Coefficients &replacement)
 // Helper function to update the low cut filter
 void _3BandEQAudioProcessor::updateLowCutFilter(const ChainSettings &chainSettings)
 {
-    // Calculate filter order (2, 4, 6, or 8) from filter slope parameters (0, 1, 2, or 3)
-    auto lowCutFilterOrder = 2 * (chainSettings.lowCutSlope + 1);
-    //auto highCutFilterOrder = 2 * (chainSettings.highCutSlope + 1);
-    
     // Calculate low cut filter coefficients
-    auto lowCutFilterCoefficients = juce::dsp::FilterDesign<float>::designIIRHighpassHighOrderButterworthMethod(chainSettings.lowCutFreq,
-                                                                                                          getSampleRate(),
-                                                                                                          lowCutFilterOrder);
+    auto lowCutFilterCoefficients = makeLowCutFilter(chainSettings, getSampleRate());
     // Get the low cut filter (left and right chains)
     auto& leftLowCutFilter = leftChain.get<ChainPositions::LowCut>();
     auto& rightLowCutFilter = rightChain.get<ChainPositions::LowCut>();
@@ -285,13 +279,8 @@ void _3BandEQAudioProcessor::updateLowCutFilter(const ChainSettings &chainSettin
 // Helper function to update the high cut filter
 void _3BandEQAudioProcessor::updateHighCutFilter(const ChainSettings &chainSettings)
 {
-    // Calculate filter order (2, 4, 6, or 8) from filter slope parameters (0, 1, 2, or 3)
-    auto highCutFilterOrder = 2 * (chainSettings.highCutSlope + 1);
-    
     // Calculate high cut filter coefficients
-    auto highCutFilterCoefficients = juce::dsp::FilterDesign<float>::designIIRLowpassHighOrderButterworthMethod(chainSettings.highCutFreq,
-                                                                                                                getSampleRate(),
-                                                                                                                highCutFilterOrder);
+    auto highCutFilterCoefficients = makeHighCutFilter(chainSettings, getSampleRate()); 
     // Get the high cut filter (left and right chains)
     auto& leftHighCutFilter = leftChain.get<ChainPositions::HighCut>();
     auto& rightHighCutFilter = rightChain.get<ChainPositions::HighCut>();
