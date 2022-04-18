@@ -34,8 +34,6 @@ ChainSettings getChainSettings(juce::AudioProcessorValueTreeState& APVTS);
 using Filter = juce::dsp::IIR::Filter<float>;
 // Sub-processing chain for our Low/High Cut filters, consisting of FOUR 12dB/oct filters.
 using CutFilter = juce::dsp::ProcessorChain<Filter, Filter, Filter, Filter>;
-// Filter coefficients
-using Coefficients = Filter::CoefficientsPtr;
 // Our single-channel processing chain: (Low)Cut Filter, Peaking Filter, (High)Cut Filter.
 using MonoChain = juce::dsp::ProcessorChain<CutFilter, Filter, CutFilter>;
 
@@ -45,6 +43,13 @@ enum ChainPositions{
     Peak,       //1
     HighCut     //2
 };
+
+//
+using Coefficients = Filter::CoefficientsPtr;
+void updateCoefficients(Coefficients& old, const Coefficients& replacement);
+
+Coefficients makePeakFilter(const ChainSettings& chainSettings, double sampleRate);
+
 
 //==============================================================================
 /**
@@ -99,8 +104,6 @@ private:
     MonoChain leftChain, rightChain;
     
     void updatePeakFilter(const ChainSettings& ChainSettings);
-    
-    static void updateCoefficients(Coefficients& old, const Coefficients& replacement);
     
     // Helper function to update a filter component (one of the four 12dB/oct "sub"-filters that...
     // ...make up the low- and high-cut filters in our chain).

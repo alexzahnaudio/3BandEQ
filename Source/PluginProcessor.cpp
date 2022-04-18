@@ -234,23 +234,30 @@ ChainSettings getChainSettings(juce::AudioProcessorValueTreeState& APVTS)
 // Filter update functions
 //=======================================================================================
 
-// Helper function to update the peak filter
-void _3BandEQAudioProcessor::updatePeakFilter(const ChainSettings &chainSettings)
+Coefficients makePeakFilter(const ChainSettings& chainSettings, double sampleRate)
 {
     // Calculate Peak filter coefficients based on current chain settings.
     // This is a reference-counted wrapper around an array of float values,
     //    allocated on the heap (which is "bad"? Look into this. Why is heap bad for real-time audio?)
-    auto updatedPeakCoefficients = juce::dsp::IIR::Coefficients<float>::makePeakFilter(getSampleRate(),
-                                                                                chainSettings.peakFreq,
-                                                                                chainSettings.peakQ,
-                                                                                juce::Decibels::decibelsToGain(chainSettings.peakGain_dB));
+    return juce::dsp::IIR::Coefficients<float>::makePeakFilter(sampleRate,
+                                                               chainSettings.peakFreq,
+                                                               chainSettings.peakQ,
+                                                               juce::Decibels::decibelsToGain(chainSettings.peakGain_dB));
+}
+
+// Helper function to update the peak filter
+void _3BandEQAudioProcessor::updatePeakFilter(const ChainSettings &chainSettings)
+{
+    // Calculate Peak filter coefficients based on current chain settings.
+    auto updatedPeakCoefficients = makePeakFilter(chainSettings, getSampleRate());
     // Apply those coefficients to the peak filter (left chain and right chain)
     updateCoefficients(leftChain.get<ChainPositions::Peak>().coefficients, updatedPeakCoefficients);
     updateCoefficients(rightChain.get<ChainPositions::Peak>().coefficients, updatedPeakCoefficients);
 }
 
 // Helper function to update filter coefficients
-void _3BandEQAudioProcessor::updateCoefficients(Coefficients &old, const Coefficients &replacement)
+// (Free function)
+void updateCoefficients(Coefficients &old, const Coefficients &replacement)
 {
     // Because JUCE DSP's IIR Coefficients are reference-counted on the heap, we need to dereference here
     *old = *replacement;

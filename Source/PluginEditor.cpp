@@ -37,12 +37,88 @@ _3BandEQAudioProcessorEditor::~_3BandEQAudioProcessorEditor()
 //==============================================================================
 void _3BandEQAudioProcessorEditor::paint (juce::Graphics& g)
 {
+    using namespace juce;
+    
     // (Our component is opaque, so we must completely fill the background with a solid colour)
-    g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
-
-    g.setColour (juce::Colours::white);
-    g.setFont (15.0f);
-    g.drawFittedText ("Hello World!", getLocalBounds(), juce::Justification::centred, 1);
+    g.fillAll (Colours::tan);
+    
+    auto bounds = getLocalBounds();
+    auto responseArea = bounds.removeFromTop(bounds.getHeight() * 0.33);
+    auto width = responseArea.getWidth();
+    
+    auto& peakFilter = monoChain.get<ChainPositions::Peak>();
+    auto& lowCutFilter = monoChain.get<ChainPositions::LowCut>();
+    auto& highCutFilter = monoChain.get<ChainPositions::HighCut>();
+    
+    auto sampleRate = audioProcessor.getSampleRate();
+    
+    // Magnitudes as doubles representing Gain (multiplicative)
+    std::vector<double> magnitudes;
+    // One magnitude value per pixel within response area width
+    magnitudes.resize(width);
+    // Calculate the magnitude at each pixel
+    for (int i=0; i<width; i++)
+    {
+        // calculate corresponding frequency for this pixel
+        auto freq = mapToLog10(double(i) / double(width), 20.0, 20000.0);
+        
+        // start with unity gain
+        double magnitude = 1.f;
+        // multiply the magnitude value by the resulting gain at this frequency...
+        // ...from each non-bypassed filter in our processing chain
+        // Peak Filter
+        if (! monoChain.isBypassed<ChainPositions::Peak>())
+            magnitude *= peakFilter.coefficients->getMagnitudeForFrequency(freq, sampleRate);
+        // Low Cut Filter
+        if (! lowCutFilter.isBypassed<0>())
+            magnitude *= lowCutFilter.get<0>().coefficients->getMagnitudeForFrequency(freq, sampleRate);
+        if (! lowCutFilter.isBypassed<1>())
+            magnitude *= lowCutFilter.get<1>().coefficients->getMagnitudeForFrequency(freq, sampleRate);
+        if (! lowCutFilter.isBypassed<2>())
+            magnitude *= lowCutFilter.get<2>().coefficients->getMagnitudeForFrequency(freq, sampleRate);
+        if (! lowCutFilter.isBypassed<3>())
+            magnitude *= lowCutFilter.get<3>().coefficients->getMagnitudeForFrequency(freq, sampleRate);
+        // High Cut Filter
+        if (! highCutFilter.isBypassed<0>())
+            magnitude *= highCutFilter.get<0>().coefficients->getMagnitudeForFrequency(freq, sampleRate);
+        if (! highCutFilter.isBypassed<1>())
+            magnitude *= highCutFilter.get<1>().coefficients->getMagnitudeForFrequency(freq, sampleRate);
+        if (! highCutFilter.isBypassed<2>())
+            magnitude *= highCutFilter.get<2>().coefficients->getMagnitudeForFrequency(freq, sampleRate);
+        if (! highCutFilter.isBypassed<3>())
+            magnitude *= highCutFilter.get<3>().coefficients->getMagnitudeForFrequency(freq, sampleRate);
+        
+        // Convert gain to decibels
+        magnitudes[i] = Decibels::gainToDecibels(magnitude);
+        
+        // Declare our response curve
+        Path responseCurve;
+        
+        const double yMin = responseArea.getBottom();
+        const double yMax = responseArea.getY();
+        // function that converts decibels to screen coordinates
+        auto map = [yMin, yMax](double input)
+        {
+            return jmap(input, -24.0, 24.0, yMin, yMax);
+        };
+        
+        responseCurve.startNewSubPath( responseArea.getX(), map(magnitudes.front()) );
+        
+        for (size_t i=1; i<magnitudes.size(); i++)
+        {
+            responseCurve.lineTo( responseArea.getX() + i, map(magnitudes[i]) );
+        }
+        
+        // draw rounded rectangle border.
+        // second argument is corner size. third argument is line thickness
+        g.setColour(Colours::orange);
+        g.drawRoundedRectangle(responseArea.toFloat(), 4.f, 1.f);
+        
+        // draw response path
+        // second argument is line thickness
+        g.setColour(Colours::white);
+        g.strokePath(responseCurve, PathStrokeType(2.f));
+    }
 }
 
 void _3BandEQAudioProcessorEditor::resized()
@@ -65,6 +141,23 @@ void _3BandEQAudioProcessorEditor::resized()
     peakFreqSlider.setBounds(bounds.removeFromTop(bounds.getHeight() * 0.33));
     peakGainSlider.setBounds(bounds.removeFromTop(bounds.getHeight() * 0.5));
     peakQSlider.setBounds(bounds);
+}
+
+void _3BandEQAudioProcessorEditor::parameterValueChanged(int parameterIndex, float newValue)
+{
+    // raise our atomic flag
+    parametersChanged.set(true);
+}
+
+void _3BandEQAudioProcessorEditor::timerCallback()
+{
+    // if parameters have been changed, lower the flag and enter this block
+    if (parametersChanged.compareAndSetBool(false, true))
+    {
+        // update the mono chain
+        
+        // signal a repaint
+    }
 }
 
 std::vector<juce::Component*> _3BandEQAudioProcessorEditor::getComponents()
