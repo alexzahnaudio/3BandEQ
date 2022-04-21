@@ -11,11 +11,47 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 
-// Rotary Slider struct
-struct RotarySlider : juce::Slider
+using RAP = juce::RangedAudioParameter;
+
+// This class determines the appearance of the rotary slider...
+// ...and is a component of the RotarySliderWithLabels class
+struct LookAndFeel : juce::LookAndFeel_V4
 {
-    RotarySlider() : juce::Slider(juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag,
-                                  juce::Slider::TextEntryBoxPosition::NoTextBox) {}
+    void drawRotarySlider (juce::Graphics&,
+                           int x, int y, int width, int height,
+                           float sliderPosProportional,
+                           float rotaryStartAngle,
+                           float rotaryEndAngle,
+                           juce::Slider&) override { };
+};
+
+// Rotary Slider struct
+struct RotarySliderWithLabels : juce::Slider
+{
+    RotarySliderWithLabels(RAP& rap, const juce::String& unitSuffix) :
+    juce::Slider(juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag,
+    juce::Slider::TextEntryBoxPosition::NoTextBox),
+    RAP(&rap),
+    suffix(unitSuffix)
+    {
+        setLookAndFeel(&laf);
+    }
+    
+    ~RotarySliderWithLabels()
+    {
+        setLookAndFeel(nullptr);
+    }
+    
+    void paint(juce::Graphics& g) override { };
+    juce::Rectangle<int> getSliderBounds() const;
+    int getTextHeight() const { return 14; }
+    juce::String getDisplayString() const;
+    
+private:
+    LookAndFeel laf;
+    
+    RAP* RAP;
+    juce::String suffix;
 };
 
 // Response Curve struct
@@ -45,6 +81,8 @@ private:
 };
 
 //==============================================================================
+// Class Declaration
+//==============================================================================
 /**
 */
 class _3BandEQAudioProcessorEditor  : public juce::AudioProcessorEditor
@@ -64,7 +102,7 @@ private:
     ResponseCurve responseCurve;
     
     // Declare our rotary sliders
-    RotarySlider peakFreqSlider,
+    RotarySliderWithLabels peakFreqSlider,
                  peakGainSlider,
                  peakQSlider,
                  lowCutFreqSlider,

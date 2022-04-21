@@ -145,10 +145,19 @@ void ResponseCurve::paint (juce::Graphics& g)
     }
 }
 
-
 //==============================================================================
+//  Class Definition
+//==============================================================================
+
 _3BandEQAudioProcessorEditor::_3BandEQAudioProcessorEditor (_3BandEQAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p),
+peakFreqSlider(*audioProcessor.APVTS.getParameter("Peak_Freq"), "Hz"),
+peakGainSlider(*audioProcessor.APVTS.getParameter("Peak_Gain"), "dB"),
+peakQSlider(*audioProcessor.APVTS.getParameter("Peak_Q"), ""),
+lowCutFreqSlider(*audioProcessor.APVTS.getParameter("LowCut_Freq"), "Hz"),
+lowCutSlopeSlider(*audioProcessor.APVTS.getParameter("LowCut_Slope"), "dB/oct"),
+highCutFreqSlider(*audioProcessor.APVTS.getParameter("HighCut_Freq"), "Hz"),
+highCutSlopeSlider(*audioProcessor.APVTS.getParameter("HighCut_Slope"), "dB/oct"),
 responseCurve(audioProcessor),
 peakFreqSliderAttachment(audioProcessor.APVTS, "Peak_Freq", peakFreqSlider),
 peakGainSliderAttachment(audioProcessor.APVTS, "Peak_Gain", peakGainSlider),
