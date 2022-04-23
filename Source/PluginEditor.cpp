@@ -24,10 +24,10 @@ void LookAndFeel::drawRotarySlider(juce::Graphics &g,
     
     //  Knob Body
     // Draw a filled ellipse, filling the bounds
-    g.setColour(Colour(20u, 20u, 30u));
+    g.setColour(Colour(70u, 70u, 80u));
     g.fillEllipse(bounds);
     // Draw a border for the ellipse
-    g.setColour(Colour(0u, 0u, 0u));
+    g.setColour(Colour(50u, 50u, 60u));
     g.drawEllipse(bounds, 1.f);
 
     //  Knob Tick Mark
@@ -44,6 +44,7 @@ void LookAndFeel::drawRotarySlider(juce::Graphics &g,
     auto sliderAngleRad = jmap(sliderPosProportional, 0.f, 1.f, rotaryStartAngle, rotaryEndAngle);
     path.applyTransform(AffineTransform().rotated(sliderAngleRad, center.getX(), center.getY()));
     // Draw it
+    g.setColour(Colours::white);
     g.fillPath(path);
 }
 
@@ -60,6 +61,10 @@ void RotarySliderWithLabels::paint(juce::Graphics &g)
     auto range = getRange();
     auto bounds = getSliderBounds();
     
+    // DEBUGGING: Draw a border around the local bounds area
+    g.setColour(Colours::orange);
+    g.drawRect(getLocalBounds());
+    
     // the jmap method here turns our slider's current value into a normalized value
     getLookAndFeel().drawRotarySlider(g,
                                       bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(),
@@ -69,9 +74,23 @@ void RotarySliderWithLabels::paint(juce::Graphics &g)
                                       *this);
 }
 
+// Define a rectangular area where the slider knob should be drawn
 juce::Rectangle<int> RotarySliderWithLabels::getSliderBounds() const
 {
-    return getLocalBounds();
+    // start by getting the overall local bounds for this slider
+    auto bounds = getLocalBounds();
+    // use the shorter dimension to define the knob size
+    auto size = juce::jmin(bounds.getWidth(), bounds.getHeight());
+    // shrink the size a bit to allow room for text
+    size -= getTextHeight() * 2;
+    // define a square area of that size for us to draw our knob in
+    juce::Rectangle<int> rect;
+    rect.setSize(size, size);
+    // position that square just below the center of the local bounds
+    rect.setCentre(bounds.getCentreX(), 0);
+    rect.setY(2);
+    
+    return rect;
 }
 
 //==============================================================================
