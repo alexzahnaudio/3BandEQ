@@ -85,10 +85,11 @@ void RotarySliderWithLabels::paint(juce::Graphics &g)
     auto range = getRange();
     auto bounds = getSliderBounds();
     
-    // DEBUGGING: Draw a border around the local bounds area
-    g.setColour(Colours::orange);
-    g.drawRect(getLocalBounds());
+//    // DEBUGGING: Draw a border around the local bounds area
+//    g.setColour(Colours::orange);
+//    g.drawRect(getLocalBounds());
     
+    // Draw rotary slider
     // the jmap method here turns our slider's current value into a normalized value
     getLookAndFeel().drawRotarySlider(g,
                                       bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(),
@@ -96,6 +97,34 @@ void RotarySliderWithLabels::paint(juce::Graphics &g)
                                       startAngle,
                                       endAngle,
                                       *this);
+    
+    // Draw label
+    auto center = bounds.toFloat().getCentre();
+    auto radius = bounds.getWidth() * 0.5f;
+    
+    g.setColour(Colour(0u, 150u, 0u));
+    g.setFont(getTextHeight());
+    
+    auto numChoices = labels.size();
+    for (int i=0; i<numChoices; i++)
+    {
+        auto pos = labels[i].position;
+        // Just in case, make sure its normalized between 0 and 1
+        jassert(0.f <= pos);
+        jassert(pos <= 1.f);
+        
+        auto angle = jmap(pos, 0.f, 1.f, startAngle, endAngle);
+        
+        auto c = center.getPointOnCircumference(radius + getTextHeight() * 0.5f + 1, angle);
+        
+        Rectangle<float> rect;
+        auto str = labels[i].label;
+        rect.setSize(g.getCurrentFont().getStringWidth(str), getTextHeight());
+        rect.setCentre(c);
+        rect.setY(rect.getY() + getTextHeight());
+        
+        g.drawFittedText(str, rect.toNearestInt(), juce::Justification::centred, 1);
+    }
 }
 
 // Define a rectangular area where the slider knob should be drawn
@@ -120,7 +149,49 @@ juce::Rectangle<int> RotarySliderWithLabels::getSliderBounds() const
 juce::String RotarySliderWithLabels::getDisplayString() const
 {
     // just return this slider's value as a string
-    return juce::String(getValue());
+    //return juce::String(getValue());
+    
+    // If this rotary slider's attached RangedAudioParameter is a CHOICE parameter (e.g. Slope),
+    // then return the name of the currently selected choice
+    if (auto* choiceParameter = dynamic_cast<juce::AudioParameterChoice*>(rap))
+        return choiceParameter->getCurrentChoiceName();
+    
+    // Create a string object for frequency labels so we can decide whether to display Hz or kHz
+    juce::String str;
+    bool addK = false;
+    // Confirm that this object is a float parameter
+    if (auto* floatParameter = dynamic_cast<juce::AudioParameterFloat*>(rap))
+    {
+        // If this freq value is 1000 or higher, display kHz
+        float val = getValue();
+        if (val > 999.f)
+        {
+            val /= 1000.f;
+            addK = true;
+        }
+        // One decimal place if we're displaying kHz, otherwise none
+        str = juce::String( val, (addK ? 1:0) );
+    }
+    else
+    {
+        // This rotary slider's attached parameter is NOT a float parameter.
+        jassertfalse; // this should never happen!
+    }
+    
+    // Return display string.
+    // We need this check because Q has no units (no suffix displayString)
+    if (suffix.isNotEmpty())
+    {
+        // add a space after the value
+        str << " ";
+        // add a 'k' if we're displaying kHz
+        if (addK)
+            str << "k";
+        // add this RotarySliderWithLabels object's suffix string
+        str << suffix;
+    }
+    
+    return str;
 }
 
 //==============================================================================
@@ -267,6 +338,7 @@ void ResponseCurve::paint (juce::Graphics& g)
 
 _3BandEQAudioProcessorEditor::_3BandEQAudioProcessorEditor (_3BandEQAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p),
+responseCurve(audioProcessor),
 peakFreqSlider(*audioProcessor.APVTS.getParameter("Peak_Freq"), "Hz"),
 peakGainSlider(*audioProcessor.APVTS.getParameter("Peak_Gain"), "dB"),
 peakQSlider(*audioProcessor.APVTS.getParameter("Peak_Q"), ""),
@@ -274,7 +346,6 @@ lowCutFreqSlider(*audioProcessor.APVTS.getParameter("LowCut_Freq"), "Hz"),
 lowCutSlopeSlider(*audioProcessor.APVTS.getParameter("LowCut_Slope"), "dB/oct"),
 highCutFreqSlider(*audioProcessor.APVTS.getParameter("HighCut_Freq"), "Hz"),
 highCutSlopeSlider(*audioProcessor.APVTS.getParameter("HighCut_Slope"), "dB/oct"),
-responseCurve(audioProcessor),
 peakFreqSliderAttachment(audioProcessor.APVTS, "Peak_Freq", peakFreqSlider),
 peakGainSliderAttachment(audioProcessor.APVTS, "Peak_Gain", peakGainSlider),
 peakQSliderAttachment(audioProcessor.APVTS, "Peak_Q", peakQSlider),
@@ -283,6 +354,22 @@ lowCutSlopeSliderAttachment(audioProcessor.APVTS, "LowCut_Slope", lowCutSlopeSli
 highCutFreqSliderAttachment(audioProcessor.APVTS, "HighCut_Freq", highCutFreqSlider),
 highCutSlopeSliderAttachment(audioProcessor.APVTS, "HighCut_Slope", highCutSlopeSlider)
 {
+    // Define min/max value labels for our rotary sliders
+    peakFreqSlider.labels.add({0.f, "20 Hz"});
+    peakFreqSlider.labels.add({1.f, "20 kHz"});
+    peakGainSlider.labels.add({0.f, "-24 dB"});
+    peakGainSlider.labels.add({1.f, "+24 dB"});
+    peakQSlider.labels.add({0.f, "0.1"});
+    peakQSlider.labels.add({1.f, "10.0"});
+    lowCutFreqSlider.labels.add({0.f, "20 Hz"});
+    lowCutFreqSlider.labels.add({1.f, "20 kHz"});
+    lowCutSlopeSlider.labels.add({0.f, "12 dB/Oct"});
+    lowCutSlopeSlider.labels.add({1.f, "48 dB/Oct"});
+    highCutFreqSlider.labels.add({0.f, "20 Hz"});
+    highCutFreqSlider.labels.add({1.f, "20 kHz"});
+    highCutSlopeSlider.labels.add({0.f, "12 dB/Oct"});
+    highCutSlopeSlider.labels.add({1.f, "48 dB/Oct"});
+
     // Add our GUI components
     for (auto* component : getComponents())
     {
@@ -314,8 +401,12 @@ void _3BandEQAudioProcessorEditor::resized()
     // subcomponents in your editor..
     
     auto bounds = getLocalBounds();
-    auto responseArea = bounds.removeFromTop(bounds.getHeight() * 0.33);
+    float heightRatio = 25.f / 100.f;
+    auto responseArea = bounds.removeFromTop(bounds.getHeight() * heightRatio);
     responseCurve.setBounds(responseArea);
+    
+    // Space between the response area and the slider areas below it
+    bounds.removeFromTop(10);
     
     auto lowCutArea = bounds.removeFromLeft(bounds.getWidth() * 0.33);
     auto highCutArea = bounds.removeFromRight(bounds.getWidth() * 0.5);

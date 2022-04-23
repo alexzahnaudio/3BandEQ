@@ -11,8 +11,6 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 
-using RAP = juce::RangedAudioParameter;
-
 // This class determines the appearance of the rotary slider...
 // ...and is a component of the RotarySliderWithLabels class
 struct LookAndFeel : juce::LookAndFeel_V4
@@ -28,10 +26,10 @@ struct LookAndFeel : juce::LookAndFeel_V4
 // Rotary Slider struct
 struct RotarySliderWithLabels : juce::Slider
 {
-    RotarySliderWithLabels(RAP& rap, const juce::String& unitSuffix) :
+    RotarySliderWithLabels(juce::RangedAudioParameter& rap, const juce::String& unitSuffix) :
     juce::Slider(juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag,
     juce::Slider::TextEntryBoxPosition::NoTextBox),
-    RAP(&rap),
+    rap(&rap),
     suffix(unitSuffix)
     {
         setLookAndFeel(&laf);
@@ -42,6 +40,14 @@ struct RotarySliderWithLabels : juce::Slider
         setLookAndFeel(nullptr);
     }
     
+    struct LabelWithPosition
+    {
+        float position;
+        juce::String label;
+    };
+    
+    juce::Array<LabelWithPosition> labels;
+    
     void paint(juce::Graphics& g) override;
     juce::Rectangle<int> getSliderBounds() const;
     int getTextHeight() const { return 14; }
@@ -50,7 +56,7 @@ struct RotarySliderWithLabels : juce::Slider
 private:
     LookAndFeel laf;
     
-    RAP* RAP;
+    juce::RangedAudioParameter* rap;
     juce::String suffix;
 };
 
