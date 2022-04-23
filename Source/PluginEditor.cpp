@@ -9,6 +9,73 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+void LookAndFeel::drawRotarySlider(juce::Graphics &g,
+                                   int x, int y, int width, int height,
+                                   float sliderPosProportional,
+                                   float rotaryStartAngle,
+                                   float rotaryEndAngle,
+                                   juce::Slider &slider)
+{
+    using namespace juce;
+    
+    // Get our drawing bounds
+    auto bounds = Rectangle<float>(x, y, width, height);
+    auto center = bounds.getCentre();
+    
+    //  Knob Body
+    // Draw a filled ellipse, filling the bounds
+    g.setColour(Colour(20u, 20u, 30u));
+    g.fillEllipse(bounds);
+    // Draw a border for the ellipse
+    g.setColour(Colour(0u, 0u, 0u));
+    g.drawEllipse(bounds, 1.f);
+
+    //  Knob Tick Mark
+    // Create Rectangle
+    Path path;
+    Rectangle<float> rect;
+    rect.setLeft(center.getX() - 2);
+    rect.setRight(center.getX() + 2);
+    rect.setTop(bounds.getY());
+    rect.setBottom(center.getY());
+    path.addRectangle(rect);
+    // Now rotate it
+    jassert(rotaryStartAngle < rotaryEndAngle);
+    auto sliderAngleRad = jmap(sliderPosProportional, 0.f, 1.f, rotaryStartAngle, rotaryEndAngle);
+    path.applyTransform(AffineTransform().rotated(sliderAngleRad, center.getX(), center.getY()));
+    // Draw it
+    g.fillPath(path);
+}
+
+//==============================================================================
+
+void RotarySliderWithLabels::paint(juce::Graphics &g)
+{
+    using namespace juce;
+    
+    // Set rotary range/bounds (uses RADIANS)
+    auto startAngle = degreesToRadians(180.f + 45.f);
+    auto endAngle = degreesToRadians(180.f - 45.f) + MathConstants<float>::twoPi;
+    // Get the rotary slider's range and bounds
+    auto range = getRange();
+    auto bounds = getSliderBounds();
+    
+    // the jmap method here turns our slider's current value into a normalized value
+    getLookAndFeel().drawRotarySlider(g,
+                                      bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(),
+                                      jmap(getValue(), range.getStart(), range.getEnd(), 0.0, 1.0),
+                                      startAngle,
+                                      endAngle,
+                                      *this);
+}
+
+juce::Rectangle<int> RotarySliderWithLabels::getSliderBounds() const
+{
+    return getLocalBounds();
+}
+
+//==============================================================================
+
 ResponseCurve::ResponseCurve(_3BandEQAudioProcessor& audioProcessor) : audioProcessor(audioProcessor)
 {
     // Tell our Listener to listen to the main audio processor chain parameters
@@ -180,6 +247,9 @@ highCutSlopeSliderAttachment(audioProcessor.APVTS, "HighCut_Slope", highCutSlope
 _3BandEQAudioProcessorEditor::~_3BandEQAudioProcessorEditor() {}
 
 //==============================================================================
+// Member functions
+//==============================================================================
+
 void _3BandEQAudioProcessorEditor::paint (juce::Graphics& g)
 {
     using namespace juce;
@@ -188,6 +258,7 @@ void _3BandEQAudioProcessorEditor::paint (juce::Graphics& g)
     g.fillAll (Colours::tan);
 }
 
+// GUI bounds/sizing methods
 void _3BandEQAudioProcessorEditor::resized()
 {
     // This is generally where you'll want to lay out the positions of any
@@ -211,6 +282,7 @@ void _3BandEQAudioProcessorEditor::resized()
     peakQSlider.setBounds(bounds);
 }
 
+// Returns a vector containing all juce components in our AudioProcessorEditor
 std::vector<juce::Component*> _3BandEQAudioProcessorEditor::getComponents()
 {
     return
