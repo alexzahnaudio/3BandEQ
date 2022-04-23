@@ -20,7 +20,6 @@ void LookAndFeel::drawRotarySlider(juce::Graphics &g,
     
     // Get our drawing bounds
     auto bounds = Rectangle<float>(x, y, width, height);
-    auto center = bounds.getCentre();
     
     //  Knob Body
     // Draw a filled ellipse, filling the bounds
@@ -29,23 +28,48 @@ void LookAndFeel::drawRotarySlider(juce::Graphics &g,
     // Draw a border for the ellipse
     g.setColour(Colour(50u, 50u, 60u));
     g.drawEllipse(bounds, 1.f);
-
-    //  Knob Tick Mark
-    // Create Rectangle
-    Path path;
-    Rectangle<float> rect;
-    rect.setLeft(center.getX() - 2);
-    rect.setRight(center.getX() + 2);
-    rect.setTop(bounds.getY());
-    rect.setBottom(center.getY());
-    path.addRectangle(rect);
-    // Now rotate it
-    jassert(rotaryStartAngle < rotaryEndAngle);
-    auto sliderAngleRad = jmap(sliderPosProportional, 0.f, 1.f, rotaryStartAngle, rotaryEndAngle);
-    path.applyTransform(AffineTransform().rotated(sliderAngleRad, center.getX(), center.getY()));
-    // Draw it
-    g.setColour(Colours::white);
-    g.fillPath(path);
+    
+    // IF this slider is of our custom "with labels" type
+    if (auto* rswl = dynamic_cast<RotarySliderWithLabels*>(&slider))
+    {
+        auto center = bounds.getCentre();
+     
+        //  Knob Tick Mark
+        // Create Rectangle
+        Path path;
+        Rectangle<float> rect;
+        rect.setLeft(center.getX() - 2);
+        rect.setRight(center.getX() + 2);
+        rect.setTop(bounds.getY());
+        rect.setBottom(center.getY() - rswl->getTextHeight() * 1.5);
+        path.addRoundedRectangle(rect, 2.f);
+        // Now rotate it
+        jassert(rotaryStartAngle < rotaryEndAngle);
+        auto sliderAngleRad = jmap(sliderPosProportional, 0.f, 1.f, rotaryStartAngle, rotaryEndAngle);
+        path.applyTransform(AffineTransform().rotated(sliderAngleRad, center.getX(), center.getY()));
+        // Draw it
+        g.setColour(Colours::white);
+        g.fillPath(path);
+        
+        //  Text Label
+        // Font: Default type, height as defined by this RotarySliderWithLabels object
+        g.setFont(rswl->getTextHeight());
+        // Text: As defined by this RotarySliderWithLabels object
+        auto text = rswl->getDisplayString();
+        // Get string width of that text
+        auto stringWidth = g.getCurrentFont().getStringWidth(text);
+        // Draw a filled rectangle for our text label background.
+        // Note: We're just reusing the Rectangle<float> object...
+        // ...from the tick mark rather than define another.
+        rect.setSize(stringWidth + 4, rswl->getTextHeight() + 2);
+        rect.setCentre(center);
+        g.setColour(Colour(0u, 0u, 0u));
+        g.fillRect(rect);
+        // Draw our text.
+        // Note: drawFittedText method wants a Rectangle<int> so we have to convert here in-line
+        g.setColour(Colours::white);
+        g.drawFittedText(text, rect.toNearestInt(), juce::Justification::centred, 1);
+    }
 }
 
 //==============================================================================
@@ -54,7 +78,7 @@ void RotarySliderWithLabels::paint(juce::Graphics &g)
 {
     using namespace juce;
     
-    // Set rotary range/bounds (uses RADIANS)
+    // Set rotary range (uses RADIANS)
     auto startAngle = degreesToRadians(180.f + 45.f);
     auto endAngle = degreesToRadians(180.f - 45.f) + MathConstants<float>::twoPi;
     // Get the rotary slider's range and bounds
@@ -91,6 +115,12 @@ juce::Rectangle<int> RotarySliderWithLabels::getSliderBounds() const
     rect.setY(2);
     
     return rect;
+}
+
+juce::String RotarySliderWithLabels::getDisplayString() const
+{
+    // just return this slider's value as a string
+    return juce::String(getValue());
 }
 
 //==============================================================================
