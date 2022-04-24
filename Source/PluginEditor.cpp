@@ -301,35 +301,35 @@ void ResponseCurve::paint (juce::Graphics& g)
         
         // Convert gain to decibels
         magnitudes[i] = Decibels::gainToDecibels(magnitude);
-        
-        // Declare our response curve
-        Path responseCurve;
-        
-        const double yMin = responseArea.getBottom();
-        const double yMax = responseArea.getY();
-        // function that converts decibels to screen coordinates
-        auto map = [yMin, yMax](double input)
-        {
-            return jmap(input, -24.0, 24.0, yMin, yMax);
-        };
-        
-        responseCurve.startNewSubPath( responseArea.getX(), map(magnitudes.front()) );
-        
-        for (size_t i=1; i<magnitudes.size(); i++)
-        {
-            responseCurve.lineTo( responseArea.getX() + i, map(magnitudes[i]) );
-        }
-        
-        // draw rounded rectangle border.
-        // second argument is corner size. third argument is line thickness
-        g.setColour(Colours::orange);
-        g.drawRoundedRectangle(responseArea.toFloat(), 4.f, 1.f);
-        
-        // draw response path
-        // second argument is line thickness
-        g.setColour(Colours::white);
-        g.strokePath(responseCurve, PathStrokeType(2.f));
     }
+    
+    // Declare our response curve
+    Path responseCurve;
+    
+    const double yMin = responseArea.getBottom();
+    const double yMax = responseArea.getY();
+    // function that converts decibels to screen coordinates
+    auto map = [yMin, yMax](double input)
+    {
+        return jmap(input, -24.0, 24.0, yMin, yMax);
+    };
+    
+    responseCurve.startNewSubPath( responseArea.getX(), map(magnitudes.front()) );
+    
+    for (size_t i=1; i<magnitudes.size(); i++)
+    {
+        responseCurve.lineTo( responseArea.getX() + i, map(magnitudes[i]) );
+    }
+    
+    // draw rounded rectangle border.
+    // second argument is corner size. third argument is line thickness
+    g.setColour(Colours::orange);
+    g.drawRoundedRectangle(responseArea.toFloat(), 4.f, 1.f);
+    
+    // draw response path
+    // second argument is line thickness
+    g.setColour(Colours::white);
+    g.strokePath(responseCurve, PathStrokeType(2.f));
 }
 
 //==============================================================================
