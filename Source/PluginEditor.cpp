@@ -263,7 +263,10 @@ void ResponseCurve::paint (juce::Graphics& g)
     // (Our component is opaque, so we must completely fill the background with a solid colour)
     g.fillAll (Colours::tan);
     
-    auto responseArea = getLocalBounds();
+    // Draw response curve area background grid
+    g.drawImage(background, getLocalBounds().toFloat());
+    
+    auto responseArea = getAnalysisArea();
     auto width = responseArea.getWidth();
     
     auto& peakFilter = monoChain.get<ChainPositions::Peak>();
@@ -333,12 +336,90 @@ void ResponseCurve::paint (juce::Graphics& g)
     // draw rounded rectangle border.
     // second argument is corner size. third argument is line thickness
     g.setColour(Colours::orange);
-    g.drawRoundedRectangle(responseArea.toFloat(), 4.f, 1.f);
+    g.drawRoundedRectangle(getRenderArea().toFloat(), 4.f, 1.f);
     
     // draw response path
     // second argument is line thickness
     g.setColour(Colours::white);
     g.strokePath(responseCurve, PathStrokeType(2.f));
+}
+
+// Called when plugin is resized, and BEFORE paint.
+void ResponseCurve::resized()
+{
+    using namespace juce;
+    
+    background = Image(Image::PixelFormat::RGB, getWidth(), getHeight(), true);
+    Graphics g(background);
+    
+    // Frequency grid values
+    Array<float> freqs
+    {
+        20, 30, 40, 50, 100,
+        200, 300, 400, 500, 1000,
+        2000, 3000, 4000, 5000, 10000,
+        20000
+    };
+    
+    // Get render area info, cache it for the upcoming calcs
+    auto renderArea = getAnalysisArea();
+    auto left = renderArea.getX();
+    auto right = renderArea.getRight();
+    auto top = renderArea.getY();
+    auto bottom = renderArea.getBottom();
+    auto width = renderArea.getWidth();
+    
+    // Get associated x positions for each freq
+    Array<float> xs;
+    for (auto freq : freqs)
+    {
+        auto normalizedX = mapFromLog10(freq, 20.f, 20000.f);
+        xs.add(left + width * normalizedX);
+    }
+    
+    // Draw frequency grid vertical lines at each x position
+    g.setColour(Colours::dimgrey);
+    for (auto x : xs)
+    {
+        g.drawVerticalLine(x, top, bottom);
+    }
+    
+    // Gain grid values (dB)
+    Array<float> gains
+    {
+        -24, -12, 0, 12, 24
+    };
+    
+    // Draw gain grid vertical lines
+    for (auto gain : gains)
+    {
+        auto y = jmap(gain, -24.f, 24.f, float(bottom), float(top));
+        // Draw 0dB gain line with our slider color. All others dark grey.
+        g.setColour( gain == 0.f ? Colour(0u, 150u, 0u) : Colours::darkgrey );
+        g.drawHorizontalLine(y, left, right);
+    }
+}
+
+juce::Rectangle<int> ResponseCurve::getRenderArea()
+{
+    auto bounds = getLocalBounds();
+    
+    bounds.removeFromTop(12);
+    bounds.removeFromBottom(2);
+    bounds.removeFromLeft(20);
+    bounds.removeFromRight(20);
+    
+    return bounds;
+}
+
+juce::Rectangle<int> ResponseCurve::getAnalysisArea()
+{
+    auto bounds = getRenderArea();
+    
+    bounds.removeFromTop(4);
+    bounds.removeFromBottom(4);
+    
+    return bounds;
 }
 
 //==============================================================================
