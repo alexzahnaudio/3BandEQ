@@ -73,7 +73,7 @@ juce::Timer
     void parameterGestureChanged (int parameterIndex, bool gestureIsStarting) override {};
     
     void timerCallback() override;
-    
+        
     void paint(juce::Graphics& g) override;
 private:
     // This reference is provided as a quick way for your editor to
@@ -84,6 +84,7 @@ private:
     juce::Atomic<bool> parametersChanged { false };
     // Mono chain
     MonoChain monoChain;
+    void updateChain();
 };
 
 //==============================================================================

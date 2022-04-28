@@ -205,6 +205,9 @@ ResponseCurve::ResponseCurve(_3BandEQAudioProcessor& audioProcessor) : audioProc
         parameter->addListener(this);
     }
     
+    // Update the response curve audio chain once to begin with
+    updateChain();
+    
     // Start the timer, update GUI at 60Hz refresh rate
     startTimerHz(60);
 }
@@ -231,20 +234,26 @@ void ResponseCurve::timerCallback()
     // ...lower the flag and update the Editor mono chain
     if (parametersChanged.compareAndSetBool(false, true))
     {
-        auto chainSettings = getChainSettings(audioProcessor.APVTS);
-        // update peak filter
-        auto peakCoefficients = makePeakFilter(chainSettings, audioProcessor.getSampleRate());
-        updateCoefficients(monoChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
-        // update low cut filter
-        auto lowCutCoefficients = makeLowCutFilter(chainSettings, audioProcessor.getSampleRate());
-        updateCutFilter(monoChain.get<ChainPositions::LowCut>(), lowCutCoefficients, chainSettings.lowCutSlope);
-        // update high cut filter
-        auto highCutCoefficients = makeHighCutFilter(chainSettings, audioProcessor.getSampleRate());
-        updateCutFilter(monoChain.get<ChainPositions::HighCut>(), highCutCoefficients, chainSettings.highCutSlope);
-        
+        // update the response curve's audio chain
+        updateChain();
         // repaint GUI
         repaint();
     }
+}
+
+void ResponseCurve::updateChain()
+{
+    auto chainSettings = getChainSettings(audioProcessor.APVTS);
+    
+    // update peak filter
+    auto peakCoefficients = makePeakFilter(chainSettings, audioProcessor.getSampleRate());
+    updateCoefficients(monoChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
+    // update low cut filter
+    auto lowCutCoefficients = makeLowCutFilter(chainSettings, audioProcessor.getSampleRate());
+    updateCutFilter(monoChain.get<ChainPositions::LowCut>(), lowCutCoefficients, chainSettings.lowCutSlope);
+    // update high cut filter
+    auto highCutCoefficients = makeHighCutFilter(chainSettings, audioProcessor.getSampleRate());
+    updateCutFilter(monoChain.get<ChainPositions::HighCut>(), highCutCoefficients, chainSettings.highCutSlope);
 }
 
 void ResponseCurve::paint (juce::Graphics& g)
