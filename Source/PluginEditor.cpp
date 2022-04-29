@@ -9,6 +9,8 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include <string>
+
 void LookAndFeel::drawRotarySlider(juce::Graphics &g,
                                    int x, int y, int width, int height,
                                    float sliderPosProportional,
@@ -355,9 +357,9 @@ void ResponseCurve::resized()
     // Frequency grid values
     Array<float> freqs
     {
-        20, 30, 40, 50, 100,
-        200, 300, 400, 500, 1000,
-        2000, 3000, 4000, 5000, 10000,
+        20, 30, 40, 50, 60, 70, 80, 90, 100,
+        200, 300, 400, 500, 600, 700, 800, 900, 1000,
+        2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000,
         20000
     };
     
@@ -397,6 +399,51 @@ void ResponseCurve::resized()
         // Draw 0dB gain line with our slider color. All others dark grey.
         g.setColour( gain == 0.f ? Colour(0u, 150u, 0u) : Colours::darkgrey );
         g.drawHorizontalLine(y, left, right);
+    }
+    
+    // Prepare to draw frequency grid line labels
+    g.setColour(Colours::darkgrey);
+    const int fontHeight = 10;
+    g.setFont(fontHeight);
+    
+    // Draw frequency grid line labels
+    for (int i=0; i<freqs.size(); i++)
+    {
+        auto freq = freqs[i];
+        auto x = xs[i];
+        
+        // Get first digit of this freq...
+        int digits = (int)log10(freq);
+        int firstDigit = (int)(freq / pow(10, digits));
+        
+        // ...and only draw the label if the first digit is 1, 2, 3, or 5.
+        if ( firstDigit == 1 || firstDigit == 2 || firstDigit == 3 || firstDigit == 5 )
+        {
+            // Add "k" if frequency is in kilohertz range
+            bool addK = false;
+            String str;
+            if (freq > 999.f)
+            {
+                addK = true;
+                freq /= 1000.f;
+            }
+            
+            // Assemble label string
+            str << freq;
+            if (addK)
+                str << "k";
+            str << "Hz";
+            
+            // Define rectangle area to fit label text
+            auto textWidth = g.getCurrentFont().getStringWidth(str);
+            Rectangle<int> rect;
+            rect.setSize(textWidth, fontHeight);
+            rect.setCentre(x, 0);
+            rect.setY(1);
+            
+            // Draw label text
+            g.drawFittedText(str, rect, juce::Justification::centred, 1);
+        }
     }
 }
 
