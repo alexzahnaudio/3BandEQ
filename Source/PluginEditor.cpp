@@ -198,7 +198,9 @@ juce::String RotarySliderWithLabels::getDisplayString() const
 
 //==============================================================================
 
-ResponseCurve::ResponseCurve(_3BandEQAudioProcessor& audioProcessor) : audioProcessor(audioProcessor)
+ResponseCurve::ResponseCurve(_3BandEQAudioProcessor& audioProcessor) :
+audioProcessor(audioProcessor),
+leftChannelFIFO(&audioProcessor.leftChannelFIFO)
 {
     // Tell our Listener to listen to the main audio processor chain parameters
     const auto& parameters = audioProcessor.getParameters();
@@ -206,6 +208,9 @@ ResponseCurve::ResponseCurve(_3BandEQAudioProcessor& audioProcessor) : audioProc
     {
         parameter->addListener(this);
     }
+    
+    leftChannelFFTDataGenerator.changeOrder(FFTOrder::ORDER_2048);
+    monoBuffer.setSize(1, leftChannelFFTDataGenerator.getFFTSize());
     
     // Update the response curve audio chain once to begin with
     updateChain();
@@ -232,6 +237,60 @@ void ResponseCurve::parameterValueChanged(int parameterIndex, float newValue)
 
 void ResponseCurve::timerCallback()
 {
+    // While there are buffers to pull,
+    // if we can pull a buffer,
+    // send it to the FFT data generator
+    juce::AudioBuffer<float> tempIncomingBuffer;
+    while ( leftChannelFIFO->getNumCompleteBuffersAvailable() > 0 )
+    {
+        if ( leftChannelFIFO->getAudioBuffer(tempIncomingBuffer) )
+        {
+            // Shift mono buffer over by the number of samples in tempIncomingBuffer
+            auto numIncomingSamples = tempIncomingBuffer.getNumSamples();
+            juce::FloatVectorOperations::copy(monoBuffer.getWritePointer(0, 0),
+                                              monoBuffer.getReadPointer(0, numIncomingSamples),
+                                              monoBuffer.getNumSamples() - numIncomingSamples);
+            
+            // Copy the samples from our tempIncomingBuffer to the end of our mono buffer
+            juce::FloatVectorOperations::copy(monoBuffer.getWritePointer(0, monoBuffer.getNumSamples() - numIncomingSamples),
+                                              tempIncomingBuffer.getReadPointer(0, 0),
+                                              numIncomingSamples);
+            
+            // Send mono buffer to FFT data generator
+            leftChannelFFTDataGenerator.produceFFTDataForRendering(monoBuffer, -48.f);
+        }
+    }
+    
+    // If there are FFT data buffers to pull, and we can pull a buffer,
+    // generate a path
+    const auto fftBounds = getAnalysisArea().toFloat();
+    const auto fftSize = leftChannelFFTDataGenerator.getFFTSize();
+    
+    // Bin width is...
+    // 48000 samples per second / 2048 fft samples = 23 Hz
+    const auto binWidth = audioProcessor.getSampleRate() / (double)fftSize;
+    
+    while (leftChannelFFTDataGenerator.getNumAvailableFFTDataBlocks() > 0)
+    {
+        std::vector<float> fftData;
+        if (leftChannelFFTDataGenerator.getFFTData(fftData))
+        {
+            pathGenerator.generatePath(fftData,
+                                       fftBounds,
+                                       fftSize,
+                                       binWidth,
+                                       -48.f);
+        }
+    }
+    
+    // While there are paths that can be pulled,
+    //  pull as many as we can
+    // Only display the most recent path
+    while (pathGenerator.getNumPathsAvailable())
+    {
+        pathGenerator.getPath(leftChannelFFTPath);
+    }
+    
     // if parameters have been changed since the last timer tick...
     // ...lower the flag and update the Editor mono chain
     if (parametersChanged.compareAndSetBool(false, true))
@@ -239,8 +298,10 @@ void ResponseCurve::timerCallback()
         // update the response curve's audio chain
         updateChain();
         // repaint GUI
-        repaint();
+//        repaint();
     }
+    
+    repaint();
 }
 
 void ResponseCurve::updateChain()
@@ -317,23 +378,28 @@ void ResponseCurve::paint (juce::Graphics& g)
         magnitudes[i] = Decibels::gainToDecibels(magnitude);
     }
     
-    // Declare our response curve
+    // Draw our response curve
     Path responseCurve;
     
     const double yMin = responseArea.getBottom();
     const double yMax = responseArea.getY();
-    // function that converts decibels to screen coordinates
+    // converts decibels to screen coordinates
     auto map = [yMin, yMax](double input)
     {
         return jmap(input, -24.0, 24.0, yMin, yMax);
     };
     
+    // Draw response curve
     responseCurve.startNewSubPath( responseArea.getX(), map(magnitudes.front()) );
     
-    for (size_t i=1; i<magnitudes.size(); i++)
+    for (size_t i = 1; i < magnitudes.size(); i++)
     {
         responseCurve.lineTo( responseArea.getX() + i, map(magnitudes[i]) );
     }
+    
+    // Draw FFT analyzer path
+    g.setColour(Colours::lightgrey);
+    g.strokePath(leftChannelFFTPath, PathStrokeType(1.f));
     
     // draw rounded rectangle border.
     // second argument is corner size. third argument is line thickness

@@ -91,25 +91,6 @@ void _3BandEQAudioProcessor::changeProgramName (int index, const juce::String& n
 }
 
 //==============================================================================
-void _3BandEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
-{
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
-    
-    // Set up Process Spec
-    juce::dsp::ProcessSpec processSpec;
-    processSpec.maximumBlockSize = samplesPerBlock;
-    processSpec.numChannels = 1;
-    processSpec.sampleRate = sampleRate;
-
-    // Prepare both the left and right chains with our Process Spec
-    leftChain.prepare(processSpec);
-    rightChain.prepare(processSpec);
-
-    // Get the current parameter values and update all filters in the chain
-    updateFilters();
-}
-
 void _3BandEQAudioProcessor::releaseResources()
 {
     // When playback stops, you can use this as an opportunity to free up any
@@ -142,6 +123,29 @@ bool _3BandEQAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts)
 }
 #endif
 
+void _3BandEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+{
+    // Use this method as the place to do any pre-playback
+    // initialisation that you need..
+    
+    // Set up Process Spec
+    juce::dsp::ProcessSpec processSpec;
+    processSpec.maximumBlockSize = samplesPerBlock;
+    processSpec.numChannels = 1;
+    processSpec.sampleRate = sampleRate;
+    
+    // Prepare both the left and right chains with our Process Spec
+    leftChain.prepare(processSpec);
+    rightChain.prepare(processSpec);
+
+    // Get the current parameter values and update all filters in the chain
+    updateFilters();
+    
+    // prepare our left and right channel buffer FIFOs
+    leftChannelFIFO.prepare(samplesPerBlock);
+    rightChannelFIFO.prepare(samplesPerBlock);
+}
+
 void _3BandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
@@ -171,6 +175,9 @@ void _3BandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     // tell the left and right mono processing chains to use these processing contexts
     leftChain.process(leftContext);
     rightChain.process(rightContext);
+    // update left and right channel buffer FIFOs
+    leftChannelFIFO.update(buffer);
+    rightChannelFIFO.update(buffer);
 }
 
 //==============================================================================

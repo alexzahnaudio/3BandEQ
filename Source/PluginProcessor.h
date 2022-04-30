@@ -10,6 +10,146 @@
 
 #include <JuceHeader.h>
 
+#include <array>
+
+enum Channel
+{
+    LEFT,   // 0
+    RIGHT   // 1
+};
+
+// FIFO queue for the SingleChannelSampleFifo class
+template<typename T>
+struct Fifo
+{
+    void prepare(int numChannels, int numSamples)
+    {
+        static_assert(std::is_same_v<T, juce::AudioBuffer<float>>,
+                      "prepare(numChannels, numSamples) should only be used when the FIFO is holding a juce::AudioBuffer<float>.");
+        
+        for ( auto& buffer : buffers )
+        {
+            buffer.setSize(numChannels,
+                           numSamples,
+                           false,           // clear everything?
+                           true,            // including the extra space?
+                           true);           // avoid reallocating?
+            buffer.clear();
+        }
+    }
+    
+    void prepare(size_t numElements)
+    {
+        static_assert(std::is_same_v<T, std::vector<float>>,
+                      "prepare(numElements) should only be used when the FIFO is holding a std::vector<float>.");
+        
+        for ( auto& buffer : buffers )
+        {
+            buffer.clear();
+            buffer.resize(numElements, 0);
+        }
+
+    }
+    
+    bool push(const T& t)
+    {
+        auto write = fifo.write(1);
+        if ( write.blockSize1 > 0 )
+        {
+            buffers[write.startIndex1] = t;
+            return true;
+        }
+        
+        return false;
+    }
+    
+    bool pull(T& t)
+    {
+        auto read = fifo.read(1);
+        if ( read.blockSize1 > 0 )
+        {
+            t = buffers[read.startIndex1];
+            return true;
+        }
+        
+        return false;
+    }
+    
+    int getNumAvailableForReading() const
+    {
+        return fifo.getNumReady();
+    }
+private:
+    static constexpr int Capacity = 30;
+    std::array<T, Capacity> buffers;
+    juce::AbstractFifo fifo {Capacity};
+};
+
+// Converts some-number-of-samples from a host buffer into a FIFO queue of fixed-size blocks
+template<typename BlockType>
+struct SingleChannelSampleFifo
+{
+    SingleChannelSampleFifo(Channel channel) : channelToUse(channel)
+    {
+        prepared.set(false);
+    }
+    
+    void update(const BlockType& buffer)
+    {
+        jassert(prepared.get());
+        jassert(buffer.getNumChannels() > channelToUse);
+        auto* channelPtr = buffer.getReadPointer(channelToUse);
+        
+        for (int i = 0; i < buffer.getNumSamples(); i++)
+        {
+            pushNextSampleIntoFifo(channelPtr[i]);
+        }
+    }
+    
+    void prepare(int bufferSize)
+    {
+        prepared.set(false);
+        size.set(bufferSize);
+        
+        bufferToFill.setSize(1,             // channel
+                             bufferSize,    // number of samples
+                             false,         // keep existing content?
+                             true,          // clear extra space?
+                             true);         // avoid reallocating?
+        audioBufferFifo.prepare(1, bufferSize);
+        fifoIndex = 0;
+        prepared.set(true);
+    }
+    //===========================================================================
+    int getNumCompleteBuffersAvailable() const { return audioBufferFifo.getNumAvailableForReading(); }
+    bool isPrepared() const { return prepared.get(); }
+    int getSize() const { return size.get(); }
+    //===========================================================================
+    bool getAudioBuffer(BlockType& buffer) { return audioBufferFifo.pull(buffer); }
+private:
+    Channel channelToUse;
+    int fifoIndex = 0;
+    Fifo<BlockType> audioBufferFifo;
+    BlockType bufferToFill;
+    juce::Atomic<bool> prepared = false;
+    juce::Atomic<int> size = 0;
+    
+    void pushNextSampleIntoFifo(float sample)
+    {
+        if (fifoIndex == bufferToFill.getNumSamples())
+        {
+            auto ok = audioBufferFifo.push(bufferToFill);
+            
+            juce::ignoreUnused(ok);
+            
+            fifoIndex = 0;
+        }
+        
+        bufferToFill.setSample(0, fifoIndex, sample);
+        fifoIndex++;
+    }
+};
+
 // Filter slope enum
 enum Slope
 {
@@ -166,8 +306,11 @@ public:
 
     //==============================================================================
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
-    
     juce::AudioProcessorValueTreeState APVTS {*this, nullptr, "Parameters", createParameterLayout()};
+
+    using BlockType = juce::AudioBuffer<float>;
+    SingleChannelSampleFifo<BlockType> leftChannelFIFO { Channel::LEFT };
+    SingleChannelSampleFifo<BlockType> rightChannelFIFO { Channel::RIGHT };
     
 private:
     // Declare two of these mono chains. One for left channel, one for right channel.
