@@ -398,7 +398,8 @@ void ResponseCurve::paint (juce::Graphics& g)
     }
     
     // Draw FFT analyzer path
-    g.setColour(Colours::lightgrey);
+    leftChannelFFTPath.applyTransform(AffineTransform().translation(responseArea.getX(), responseArea.getY()));
+    g.setColour(Colours::brown);
     g.strokePath(leftChannelFFTPath, PathStrokeType(1.f));
     
     // draw rounded rectangle border.
