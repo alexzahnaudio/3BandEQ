@@ -401,7 +401,7 @@ void ResponseCurve::resized()
         g.drawHorizontalLine(y, left, right);
     }
     
-    // Prepare to draw frequency grid line labels
+    // Prepare to draw grid line labels
     g.setColour(Colours::darkgrey);
     const int fontHeight = 10;
     g.setFont(fontHeight);
@@ -444,6 +444,29 @@ void ResponseCurve::resized()
             // Draw label text
             g.drawFittedText(str, rect, juce::Justification::centred, 1);
         }
+    }
+    
+    // Draw gain grid line labels
+    for (auto gain : gains)
+    {
+        auto y = jmap(gain, -24.f, 24.f, float(bottom), float(top));
+        
+        // Assemble label string
+        String str;
+        if (gain > 0)
+            str << "+";
+        str << gain;
+        
+        // Define rectangle area to fit label text
+        auto textWidth = g.getCurrentFont().getStringWidth(str);
+        Rectangle<int> rect;
+        rect.setSize(textWidth, fontHeight);
+        rect.setX(getWidth() - textWidth);
+        rect.setCentre(rect.getCentreX(), y);
+        
+        // Draw label text... Green text at 0dB, otherwise dark grey
+        g.setColour( gain == 0.f ? Colour(0u, 150u, 0u) : Colours::darkgrey );
+        g.drawFittedText(str, rect, juce::Justification::centred, 1);
     }
 }
 
