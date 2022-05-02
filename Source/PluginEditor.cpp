@@ -200,7 +200,8 @@ juce::String RotarySliderWithLabels::getDisplayString() const
 
 ResponseCurve::ResponseCurve(_3BandEQAudioProcessor& audioProcessor) :
 audioProcessor(audioProcessor),
-leftChannelFIFO(&audioProcessor.leftChannelFIFO)
+leftChannelPathGenerator(audioProcessor.leftChannelFIFO),
+rightChannelPathGenerator(audioProcessor.rightChannelFIFO)
 {
     // Tell our Listener to listen to the main audio processor chain parameters
     const auto& parameters = audioProcessor.getParameters();
@@ -208,9 +209,6 @@ leftChannelFIFO(&audioProcessor.leftChannelFIFO)
     {
         parameter->addListener(this);
     }
-    
-    leftChannelFFTDataGenerator.changeOrder(FFTOrder::ORDER_2048);
-    monoBuffer.setSize(1, leftChannelFFTDataGenerator.getFFTSize());
     
     // Update the response curve audio chain once to begin with
     updateChain();
@@ -235,7 +233,7 @@ void ResponseCurve::parameterValueChanged(int parameterIndex, float newValue)
     parametersChanged.set(true);
 }
 
-void ResponseCurve::timerCallback()
+void PathGenerator::process(juce::Rectangle<float> fftBounds, double sampleRate)
 {
     // While there are buffers to pull,
     // if we can pull a buffer,
@@ -263,12 +261,10 @@ void ResponseCurve::timerCallback()
     
     // If there are FFT data buffers to pull, and we can pull a buffer,
     // generate a path
-    const auto fftBounds = getAnalysisArea().toFloat();
     const auto fftSize = leftChannelFFTDataGenerator.getFFTSize();
-    
     // Bin width is...
     // 48000 samples per second / 2048 fft samples = 23 Hz
-    const auto binWidth = audioProcessor.getSampleRate() / (double)fftSize;
+    const auto binWidth = sampleRate / (double)fftSize;
     
     while (leftChannelFFTDataGenerator.getNumAvailableFFTDataBlocks() > 0)
     {
@@ -290,6 +286,15 @@ void ResponseCurve::timerCallback()
     {
         pathGenerator.getPath(leftChannelFFTPath);
     }
+}
+
+void ResponseCurve::timerCallback()
+{
+    auto fftBounds = getAnalysisArea().toFloat();
+    auto sampleRate = audioProcessor.getSampleRate();
+    
+    leftChannelPathGenerator.process(fftBounds, sampleRate);
+    rightChannelPathGenerator.process(fftBounds, sampleRate);
     
     // if parameters have been changed since the last timer tick...
     // ...lower the flag and update the Editor mono chain
@@ -397,10 +402,17 @@ void ResponseCurve::paint (juce::Graphics& g)
         responseCurve.lineTo( responseArea.getX() + i, map(magnitudes[i]) );
     }
     
-    // Draw FFT analyzer path
+    // Draw left channel FFT analyzer path
+    auto leftChannelFFTPath = leftChannelPathGenerator.getPath();
     leftChannelFFTPath.applyTransform(AffineTransform().translation(responseArea.getX(), responseArea.getY()));
     g.setColour(Colours::brown);
     g.strokePath(leftChannelFFTPath, PathStrokeType(1.f));
+    
+    // Draw right channel FFT analyzer path
+    auto rightChannelFFTPath = rightChannelPathGenerator.getPath();
+    rightChannelFFTPath.applyTransform(AffineTransform().translation(responseArea.getX(), responseArea.getY()));
+    g.setColour(Colours::maroon);
+    g.strokePath(rightChannelFFTPath, PathStrokeType(1.f));
     
     // draw rounded rectangle border.
     // second argument is corner size. third argument is line thickness

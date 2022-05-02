@@ -144,6 +144,12 @@ void _3BandEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     // prepare our left and right channel buffer FIFOs
     leftChannelFIFO.prepare(samplesPerBlock);
     rightChannelFIFO.prepare(samplesPerBlock);
+    
+    // TEST OSCILLATOR
+    osc.initialise([](float x) { return std::sin(x); });
+    processSpec.numChannels = getTotalNumOutputChannels();
+    osc.prepare(processSpec);
+    osc.setFrequency(1000);
 }
 
 void _3BandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
@@ -166,6 +172,12 @@ void _3BandEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     
     // create audio block with size of our buffer
     juce::dsp::AudioBlock<float> block(buffer);
+   
+    // TEST OSCILLATOR
+//    buffer.clear();
+//    juce::dsp::ProcessContextReplacing<float> stereoContext(block);
+//    osc.process(stereoContext);
+    
     // extract left and right channels separately from audio block
     auto leftBlock = block.getSingleChannelBlock(0);
     auto rightBlock = block.getSingleChannelBlock(1);
