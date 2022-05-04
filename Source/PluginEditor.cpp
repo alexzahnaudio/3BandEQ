@@ -74,6 +74,53 @@ void LookAndFeel::drawRotarySlider(juce::Graphics &g,
     }
 }
 
+void LookAndFeel::drawToggleButton(juce::Graphics &g,
+                                   juce::ToggleButton &toggleButton,
+                                   bool isHighlighted,
+                                   bool isPressed)
+{
+    using namespace juce;
+    
+    Path powerButton;
+    
+    // Define a square area that fits inside the local bounds.
+    auto bounds = toggleButton.getLocalBounds();
+    auto size = jmin(bounds.getWidth(), bounds.getHeight() - 6);    // find max size that can fit, shrink a bit
+    auto rect = bounds.withSizeKeepingCentre(size, size).toFloat();
+    
+    // Angle from vertical where we want out power icon arc to end
+    float angleDeg = 30.f;
+    
+    // Arc radius shrink in a bit. Don't fill square area completely.
+    size -= 6;
+    auto radius = size * 0.5f;
+    
+    // Define arc
+    powerButton.addCentredArc(rect.getCentreX(), rect.getCentreY(),     // center x and y
+                              radius, radius,                           // radius x and y
+                              0.f,                                      // rotation of ellipse
+                              degreesToRadians(angleDeg),               // radians start
+                              degreesToRadians(360.f - angleDeg),       // radians end
+                              true);                                    // start as new subpath?
+    
+    // Define line from true center to top center
+    powerButton.startNewSubPath(rect.getCentreX(), rect.getY());
+    powerButton.lineTo(rect.getCentre());
+    
+    // 2pt path stroke width, rounded corners
+    PathStrokeType pathStrokeType(2.f, PathStrokeType::JointStyle::curved);
+    
+    // Use bypass state to determine color
+    auto color = toggleButton.getToggleState() ? Colours::dimgrey : Colour(0u, 150u, 0u);
+    g.setColour(color);
+    
+    // Draw power button icon
+    g.strokePath(powerButton, pathStrokeType);
+    
+    // Draw power button (circular) border
+    g.drawEllipse(rect, 2.f);
+}
+
 //==============================================================================
 
 void RotarySliderWithLabels::paint(juce::Graphics &g)
@@ -633,11 +680,21 @@ analyzerBypassButtonAttachment(audioProcessor.APVTS, "Analyzer_Bypass", analyzer
         addAndMakeVisible(component);
     }
     
+    // Set up bypass buttons' look and feel
+    lowCutBypassButton.setLookAndFeel(&lookAndFeel);
+    highCutBypassButton.setLookAndFeel(&lookAndFeel);
+    peakBypassButton.setLookAndFeel(&lookAndFeel);
+    
     // Set the plugin window size
     setSize (600, 400);
 }
 
-_3BandEQAudioProcessorEditor::~_3BandEQAudioProcessorEditor() {}
+_3BandEQAudioProcessorEditor::~_3BandEQAudioProcessorEditor()
+{
+    lowCutBypassButton.setLookAndFeel(nullptr);
+    highCutBypassButton.setLookAndFeel(nullptr);
+    peakBypassButton.setLookAndFeel(nullptr);
+}
 
 //==============================================================================
 // Member functions

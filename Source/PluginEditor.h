@@ -160,6 +160,11 @@ struct LookAndFeel : juce::LookAndFeel_V4
                            float rotaryStartAngle,
                            float rotaryEndAngle,
                            juce::Slider&) override;
+    
+    void drawToggleButton (juce::Graphics &g,
+                           juce::ToggleButton &toggleButton,
+                           bool isHighlighted,
+                           bool isPressed) override;
 };
 
 // Rotary Slider struct
@@ -312,7 +317,9 @@ private:
                      peakBypassButtonAttachment,
                      analyzerBypassButtonAttachment;
     
-    // Declare a function to return all our rotary sliders as a vector
+    LookAndFeel lookAndFeel;
+    
+    // Declare a function to return all our rotary sliders and buttons as a vector
     std::vector<juce::Component*> getComponents();
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (_3BandEQAudioProcessorEditor)
