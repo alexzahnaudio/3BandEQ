@@ -165,6 +165,8 @@ struct ChainSettings
     float lowCutFreq {0}, highCutFreq {0};
     Slope lowCutSlope {Slope::SLOPE_12}, highCutSlope {Slope::SLOPE_12};
     float peakFreq {0}, peakGain_dB {0}, peakQ {1.f};
+    
+    bool lowCutBypass {false}, highCutBypass {false}, peakBypass {false};
 };
 
 // Helper function to return all parameter values from the APVTS as a ChainSettings struct

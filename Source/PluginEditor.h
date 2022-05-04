@@ -299,6 +299,19 @@ private:
                highCutFreqSliderAttachment,
                highCutSlopeSliderAttachment;
     
+    // Bypass toggle buttons
+    juce::ToggleButton lowCutBypassButton,
+                       highCutBypassButton,
+                       peakBypassButton,
+                       analyzerBypassButton;
+    
+    // Bypass toggle button attachments for each of our buttons
+    using ButtonAttachment = APVTS::ButtonAttachment;
+    ButtonAttachment lowCutBypassButtonAttachment,
+                     highCutBypassButtonAttachment,
+                     peakBypassButtonAttachment,
+                     analyzerBypassButtonAttachment;
+    
     // Declare a function to return all our rotary sliders as a vector
     std::vector<juce::Component*> getComponents();
     

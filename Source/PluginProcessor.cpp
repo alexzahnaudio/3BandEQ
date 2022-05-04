@@ -240,11 +240,17 @@ ChainSettings getChainSettings(juce::AudioProcessorValueTreeState& APVTS)
     // Get all current parameter values from APVTS
     settings.lowCutFreq     = APVTS.getRawParameterValue("LowCut_Freq")->load();
     settings.lowCutSlope    = static_cast<Slope>( APVTS.getRawParameterValue("LowCut_Slope")->load() );
+    
     settings.highCutFreq    = APVTS.getRawParameterValue("HighCut_Freq")->load();
     settings.highCutSlope   = static_cast<Slope>( APVTS.getRawParameterValue("HighCut_Slope")->load() );
+    
     settings.peakFreq       = APVTS.getRawParameterValue("Peak_Freq")->load();
     settings.peakGain_dB    = APVTS.getRawParameterValue("Peak_Gain")->load();
     settings.peakQ          = APVTS.getRawParameterValue("Peak_Q")->load();
+    
+    settings.lowCutBypass   = APVTS.getRawParameterValue("LowCut_Bypass")->load() > 0.5f;
+    settings.highCutBypass  = APVTS.getRawParameterValue("HighCut_Bypass")->load() > 0.5f;
+    settings.peakBypass     = APVTS.getRawParameterValue("Peak_Bypass")->load() > 0.5f;
     
     return settings;
 }
@@ -264,16 +270,6 @@ Coefficients makePeakFilter(const ChainSettings& chainSettings, double sampleRat
                                                                juce::Decibels::decibelsToGain(chainSettings.peakGain_dB));
 }
 
-// Helper function to update the peak filter
-void _3BandEQAudioProcessor::updatePeakFilter(const ChainSettings &chainSettings)
-{
-    // Calculate Peak filter coefficients based on current chain settings.
-    auto updatedPeakCoefficients = makePeakFilter(chainSettings, getSampleRate());
-    // Apply those coefficients to the peak filter (left chain and right chain)
-    updateCoefficients(leftChain.get<ChainPositions::Peak>().coefficients, updatedPeakCoefficients);
-    updateCoefficients(rightChain.get<ChainPositions::Peak>().coefficients, updatedPeakCoefficients);
-}
-
 // Helper function to update filter coefficients
 // (Free function)
 void updateCoefficients(Coefficients &old, const Coefficients &replacement)
@@ -290,6 +286,9 @@ void _3BandEQAudioProcessor::updateLowCutFilter(const ChainSettings &chainSettin
     // Get the low cut filter (left and right chains)
     auto& leftLowCutFilter = leftChain.get<ChainPositions::LowCut>();
     auto& rightLowCutFilter = rightChain.get<ChainPositions::LowCut>();
+    // Update low cut filter bypass setting
+    leftChain.setBypassed<ChainPositions::LowCut>(chainSettings.lowCutBypass);
+    rightChain.setBypassed<ChainPositions::LowCut>(chainSettings.lowCutBypass);
     // Use chain settings to calculate new filter coefficients and apply them to the filter (L and R chains)
     updateCutFilter(leftLowCutFilter, lowCutFilterCoefficients, chainSettings.lowCutSlope);
     updateCutFilter(rightLowCutFilter, lowCutFilterCoefficients, chainSettings.lowCutSlope);
@@ -303,9 +302,25 @@ void _3BandEQAudioProcessor::updateHighCutFilter(const ChainSettings &chainSetti
     // Get the high cut filter (left and right chains)
     auto& leftHighCutFilter = leftChain.get<ChainPositions::HighCut>();
     auto& rightHighCutFilter = rightChain.get<ChainPositions::HighCut>();
+    // Update high cut filter bypass setting
+    leftChain.setBypassed<ChainPositions::HighCut>(chainSettings.highCutBypass);
+    rightChain.setBypassed<ChainPositions::HighCut>(chainSettings.highCutBypass);
     // Use chain settings to calculate new filter coefficients and apply them to the filter (L and R chains)
     updateCutFilter(leftHighCutFilter, highCutFilterCoefficients, chainSettings.highCutSlope);
     updateCutFilter(rightHighCutFilter, highCutFilterCoefficients, chainSettings.highCutSlope);
+}
+
+// Helper function to update the peak filter
+void _3BandEQAudioProcessor::updatePeakFilter(const ChainSettings &chainSettings)
+{
+    // Calculate Peak filter coefficients based on current chain settings.
+    auto updatedPeakCoefficients = makePeakFilter(chainSettings, getSampleRate());
+    // Update peak filter bypass setting
+    leftChain.setBypassed<ChainPositions::Peak>(chainSettings.peakBypass);
+    rightChain.setBypassed<ChainPositions::Peak>(chainSettings.peakBypass);
+    // Apply those coefficients to the peak filter (left chain and right chain)
+    updateCoefficients(leftChain.get<ChainPositions::Peak>().coefficients, updatedPeakCoefficients);
+    updateCoefficients(rightChain.get<ChainPositions::Peak>().coefficients, updatedPeakCoefficients);
 }
 
 // Helper function to update all the filters
@@ -350,6 +365,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout _3BandEQAudioProcessor::crea
                                                             filterSlopeOptionsArray,
                                                             0) );
     
+    // Low Cut Bypass
+    layout.add(std::make_unique<juce::AudioParameterBool>("LowCut_Bypass",
+                                                          "LowCut_Bypass",
+                                                          false));
+    
     // High Cut Frequency Parameter
     layout.add(std::make_unique<juce::AudioParameterFloat>("HighCut_Freq",
                                                            "HighCut_Freq",
@@ -361,6 +381,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout _3BandEQAudioProcessor::crea
                                                             "HighCut_Slope",
                                                             filterSlopeOptionsArray,
                                                             0) );
+    
+    // High Cut Bypass
+    layout.add(std::make_unique<juce::AudioParameterBool>("HighCut_Bypass",
+                                                          "HighCut_Bypass",
+                                                          false));
     
     // Peak Frequency Parameter
     layout.add(std::make_unique<juce::AudioParameterFloat>("Peak_Freq",
@@ -378,7 +403,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout _3BandEQAudioProcessor::crea
                                                            "Peak_Q",
                                                            juce::NormalisableRange<float>(0.1f, 10.f, 0.05f, 1.f),
                                                            1.f));
-        
+    
+    // Peak Bypass
+    layout.add(std::make_unique<juce::AudioParameterBool>("Peak_Bypass",
+                                                          "Peak_Bypass",
+                                                          false));
+    
+    // Spectrum Analyzer Bypass
+    layout.add(std::make_unique<juce::AudioParameterBool>("Analyzer_Bypass",
+                                                          "Analyzer_Bypass",
+                                                          true));
+    
     return layout;
 }
 
