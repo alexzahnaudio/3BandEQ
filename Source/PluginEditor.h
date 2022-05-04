@@ -263,6 +263,36 @@ private:
     PathGenerator leftChannelPathGenerator, rightChannelPathGenerator;
 };
 
+struct PowerButton : juce::ToggleButton {  };
+struct AnalyzerButton : juce::ToggleButton
+{
+    void resized() override
+    {
+        auto bounds = getLocalBounds();
+        auto insetRect = bounds.reduced(4);
+        
+        auto leftX = insetRect.getX();
+        auto topY = insetRect.getY();
+        auto height = insetRect.getHeight();
+        auto rightX = insetRect.getRight();
+        
+        juce::Random rng;
+        
+        randomPath.clear();
+        
+        randomPath.startNewSubPath(leftX,
+                                   topY + height * rng.nextFloat());
+        
+        for (auto x = leftX + 1; x < rightX; x += 2)
+        {
+            randomPath.lineTo(x,
+                              topY + height * rng.nextFloat());
+        }
+    }
+    
+    juce::Path randomPath;
+};
+
 //==============================================================================
 // Class Declaration
 //==============================================================================
@@ -304,11 +334,11 @@ private:
                highCutFreqSliderAttachment,
                highCutSlopeSliderAttachment;
     
-    // Bypass toggle buttons
-    juce::ToggleButton lowCutBypassButton,
-                       highCutBypassButton,
-                       peakBypassButton,
-                       analyzerBypassButton;
+    // Bypass buttons
+    PowerButton lowCutBypassButton,
+                highCutBypassButton,
+                peakBypassButton;
+    AnalyzerButton analyzerBypassButton;
     
     // Bypass toggle button attachments for each of our buttons
     using ButtonAttachment = APVTS::ButtonAttachment;
