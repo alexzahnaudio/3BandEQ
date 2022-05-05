@@ -23,12 +23,14 @@ void LookAndFeel::drawRotarySlider(juce::Graphics &g,
     // Get our drawing bounds
     auto bounds = Rectangle<float>(x, y, width, height);
     
+    bool enabled = slider.isEnabled();
+    
     //  Knob Body
     // Draw a filled ellipse, filling the bounds
-    g.setColour(Colour(70u, 70u, 80u));
+    g.setColour(enabled ? Colour(70u, 70u, 80u) : Colours::dimgrey);
     g.fillEllipse(bounds);
     // Draw a border for the ellipse
-    g.setColour(Colour(50u, 50u, 60u));
+    g.setColour(enabled ? Colour(50u, 50u, 60u) : Colours::darkgrey);
     g.drawEllipse(bounds, 1.f);
     
     // IF this slider is of our custom "with labels" type
@@ -164,11 +166,11 @@ void RotarySliderWithLabels::paint(juce::Graphics &g)
                                       endAngle,
                                       *this);
     
-    // Draw label
+    // Draw labels
     auto center = bounds.toFloat().getCentre();
     auto radius = bounds.getWidth() * 0.5f;
     
-    g.setColour(Colour(0u, 150u, 0u));
+    g.setColour( isEnabled() ? Colour(0u, 150u, 0u) : Colours::dimgrey);
     g.setFont(getTextHeight());
     
     auto numChoices = labels.size();
@@ -701,8 +703,38 @@ analyzerBypassButtonAttachment(audioProcessor.APVTS, "Analyzer_Bypass", analyzer
     lowCutBypassButton.setLookAndFeel(&lookAndFeel);
     highCutBypassButton.setLookAndFeel(&lookAndFeel);
     peakBypassButton.setLookAndFeel(&lookAndFeel);
-    
     analyzerBypassButton.setLookAndFeel(&lookAndFeel);
+    
+    // Enable sliders for all non-bypassed filters in our chain
+    auto safePtr = juce::Component::SafePointer<_3BandEQAudioProcessorEditor>(this);
+    lowCutBypassButton.onClick = [safePtr]()
+    {
+        if ( auto* juceComp = safePtr.getComponent() )
+        {
+            auto bypassed = juceComp->lowCutBypassButton.getToggleState();
+            juceComp->lowCutFreqSlider.setEnabled( !bypassed );
+            juceComp->lowCutSlopeSlider.setEnabled( !bypassed );
+        }
+    };
+    highCutBypassButton.onClick = [safePtr]()
+    {
+        if ( auto* juceComp = safePtr.getComponent() )
+        {
+            auto bypassed = juceComp->highCutBypassButton.getToggleState();
+            juceComp->highCutFreqSlider.setEnabled( !bypassed );
+            juceComp->highCutSlopeSlider.setEnabled( !bypassed );
+        }
+    };
+    peakBypassButton.onClick = [safePtr]()
+    {
+        if ( auto* juceComp = safePtr.getComponent() )
+        {
+            auto bypassed = juceComp->peakBypassButton.getToggleState();
+            juceComp->peakFreqSlider.setEnabled( !bypassed );
+            juceComp->peakGainSlider.setEnabled( !bypassed );
+            juceComp->peakQSlider.setEnabled( !bypassed );
+        }
+    };
     
     // Set the plugin window size
     setSize (600, 400);
