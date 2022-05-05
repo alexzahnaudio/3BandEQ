@@ -242,7 +242,9 @@ juce::Timer
     void parameterGestureChanged (int parameterIndex, bool gestureIsStarting) override {};
     
     void timerCallback() override;
-        
+    
+    void setFFTAnalysisEnabled(bool b) { isFFTAnalysisEnabled = b; }
+    
     void paint(juce::Graphics& g) override;
     void resized() override;
 private:
@@ -251,7 +253,7 @@ private:
     _3BandEQAudioProcessor& audioProcessor;
     // atomic flag to let us know when our parameters have changed...
     // ...and the GUI needs updating
-    juce::Atomic<bool> parametersChanged { false };
+    juce::Atomic<bool> parametersChanged {false};
     // Mono chain
     MonoChain monoChain;
     void updateChain();
@@ -261,6 +263,8 @@ private:
     juce::Rectangle<int> getAnalysisArea();
     // Path generator
     PathGenerator leftChannelPathGenerator, rightChannelPathGenerator;
+    
+    bool isFFTAnalysisEnabled {true};
 };
 
 struct PowerButton : juce::ToggleButton {  };

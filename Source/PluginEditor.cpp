@@ -356,11 +356,14 @@ void PathGenerator::process(juce::Rectangle<float> fftBounds, double sampleRate)
 
 void ResponseCurve::timerCallback()
 {
-    auto fftBounds = getAnalysisArea().toFloat();
-    auto sampleRate = audioProcessor.getSampleRate();
-    
-    leftChannelPathGenerator.process(fftBounds, sampleRate);
-    rightChannelPathGenerator.process(fftBounds, sampleRate);
+    // If analyzer is NOT bypassed,
+    if ( isFFTAnalysisEnabled )
+    {
+        auto fftBounds = getAnalysisArea().toFloat();
+        auto sampleRate = audioProcessor.getSampleRate();
+        leftChannelPathGenerator.process(fftBounds, sampleRate);
+        rightChannelPathGenerator.process(fftBounds, sampleRate);
+    }
     
     // if parameters have been changed since the last timer tick...
     // ...lower the flag and update the Editor mono chain
@@ -368,8 +371,6 @@ void ResponseCurve::timerCallback()
     {
         // update the response curve's audio chain
         updateChain();
-        // repaint GUI
-//        repaint();
     }
     
     repaint();
@@ -478,18 +479,21 @@ void ResponseCurve::paint (juce::Graphics& g)
         responseCurve.lineTo( responseArea.getX() + i, map(magnitudes[i]) );
     }
     
-    // Draw left channel FFT analyzer path
-    auto leftChannelFFTPath = leftChannelPathGenerator.getPath();
-    leftChannelFFTPath.applyTransform(AffineTransform().translation(responseArea.getX(), responseArea.getY()));
-    g.setColour(Colours::brown);
-    g.strokePath(leftChannelFFTPath, PathStrokeType(1.f));
-    
-    // Draw right channel FFT analyzer path
-    auto rightChannelFFTPath = rightChannelPathGenerator.getPath();
-    rightChannelFFTPath.applyTransform(AffineTransform().translation(responseArea.getX(), responseArea.getY()));
-    g.setColour(Colours::maroon);
-    g.strokePath(rightChannelFFTPath, PathStrokeType(1.f));
-    
+    // If analyzer is NOT bypassed, draw the FFT analysis curve
+    if ( isFFTAnalysisEnabled )
+    {
+        // Draw left channel FFT analyzer path
+        auto leftChannelFFTPath = leftChannelPathGenerator.getPath();
+        leftChannelFFTPath.applyTransform(AffineTransform().translation(responseArea.getX(), responseArea.getY()));
+        g.setColour(Colours::brown);
+        g.strokePath(leftChannelFFTPath, PathStrokeType(1.f));
+        // Draw right channel FFT analyzer path
+        auto rightChannelFFTPath = rightChannelPathGenerator.getPath();
+        rightChannelFFTPath.applyTransform(AffineTransform().translation(responseArea.getX(), responseArea.getY()));
+        g.setColour(Colours::maroon);
+        g.strokePath(rightChannelFFTPath, PathStrokeType(1.f));
+    }
+
     // draw rounded rectangle border.
     // second argument is corner size. third argument is line thickness
     g.setColour(Colours::orange);
@@ -705,7 +709,8 @@ analyzerBypassButtonAttachment(audioProcessor.APVTS, "Analyzer_Bypass", analyzer
     peakBypassButton.setLookAndFeel(&lookAndFeel);
     analyzerBypassButton.setLookAndFeel(&lookAndFeel);
     
-    // Enable sliders for all non-bypassed filters in our chain
+    // Set up bypass buttons onClick function:
+    // Enable sliders for all non-bypassed filters in our chain, and vice-versa
     auto safePtr = juce::Component::SafePointer<_3BandEQAudioProcessorEditor>(this);
     lowCutBypassButton.onClick = [safePtr]()
     {
@@ -735,6 +740,16 @@ analyzerBypassButtonAttachment(audioProcessor.APVTS, "Analyzer_Bypass", analyzer
             juceComp->peakQSlider.setEnabled( !bypassed );
         }
     };
+    // Same thing for analyzer
+    analyzerBypassButton.onClick = [safePtr]()
+    {
+        if ( auto* juceComp = safePtr.getComponent() )
+        {
+            auto enabled = juceComp->analyzerBypassButton.getToggleState();
+            juceComp->responseCurve.setFFTAnalysisEnabled( enabled );
+        }
+    };
+    
     
     // Set the plugin window size
     setSize (600, 400);
@@ -748,10 +763,6 @@ _3BandEQAudioProcessorEditor::~_3BandEQAudioProcessorEditor()
     
     analyzerBypassButton.setLookAndFeel(nullptr);
 }
-
-//==============================================================================
-// Member functions
-//==============================================================================
 
 void _3BandEQAudioProcessorEditor::paint (juce::Graphics& g)
 {
