@@ -170,7 +170,7 @@ void RotarySliderWithLabels::paint(juce::Graphics &g)
     auto center = bounds.toFloat().getCentre();
     auto radius = bounds.getWidth() * 0.5f;
     
-    g.setColour( isEnabled() ? Colour(0u, 150u, 0u) : Colours::dimgrey);
+    g.setColour( isEnabled() ? Colour(44u, 44u, 44u) : Colours::dimgrey);
     g.setFont(getTextHeight());
     
     auto numChoices = labels.size();
